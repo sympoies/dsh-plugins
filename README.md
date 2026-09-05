@@ -8,10 +8,11 @@ evidence. It does not own DSH runtime governance or production deployment.
 
 ## Repository boundary
 
-- `sympoies/dsh-runtime-kit` owns reusable runtime governance, composition,
-  admission, lifecycle, isolation, and receipts.
-- `sympoies/dsh-applications` owns the coordinated public application and
-  profile catalog.
+- [`sympoies/dsh-runtime-kit`](https://github.com/sympoies/dsh-runtime-kit)
+  owns reusable runtime governance, composition, admission, lifecycle,
+  isolation, and receipts.
+- [`sympoies/dsh-applications`](https://github.com/sympoies/dsh-applications)
+  owns the coordinated public application and profile catalog.
 - This repository owns independently released DSH plugins.
 
 ## Layout
