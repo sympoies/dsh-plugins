@@ -51,10 +51,5 @@
     "type": "git",
     "url": "git+https://github.com/sympoies/dsh-plugins.git",
     "directory": "packages/llm-codex-subscription"
-  },
-  "dshRelease": {
-    "tagPrefix": "dsh-llm-codex-subscription",
-    "providerRoute": "codex-subscription",
-    "bootConfigFile": "release/boot-config.json"
   }
 }

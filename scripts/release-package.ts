@@ -73,17 +73,15 @@ function validatePackage(root: string, workspace: string, packageJson: JsonObjec
   }
   if (!/^lib\/.+\.js$/.test(packageJson.main ?? "")) fail(`${relativeWorkspace} main must be a compiled lib entrypoint`);
   if (!/^lib\/.+\.d\.ts$/.test(packageJson.types ?? "")) fail(`${relativeWorkspace} types must be a compiled lib declaration`);
-  const release = packageJson.dshRelease;
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(release?.tagPrefix ?? "")) fail(`${relativeWorkspace} dshRelease.tagPrefix is invalid`);
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(release?.providerRoute ?? "")) fail(`${relativeWorkspace} dshRelease.providerRoute is invalid`);
-  if (!/^release\/[a-z0-9][a-z0-9-]*\.json$/.test(release?.bootConfigFile ?? "")) {
-    fail(`${relativeWorkspace} dshRelease.bootConfigFile is invalid`);
-  }
-  const bootConfigPath = join(workspace, release.bootConfigFile);
-  if (!existsSync(bootConfigPath)) fail(`${relativeWorkspace}/${release.bootConfigFile} is missing`);
-  const bootConfig = json(bootConfigPath);
+  const releasePath = join(workspace, "release/manifest.json");
+  if (!existsSync(releasePath)) fail(`${relativeWorkspace}/release/manifest.json is missing`);
+  const release = json(releasePath);
+  if (release.schemaVersion !== "dsh-plugin-release.v1") fail(`${relativeWorkspace} release manifest schema is unsupported`);
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(release?.tagPrefix ?? "")) fail(`${relativeWorkspace} release tagPrefix is invalid`);
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(release?.providerRoute ?? "")) fail(`${relativeWorkspace} release providerRoute is invalid`);
+  const bootConfig = release.bootConfig;
   if (bootConfig === null || typeof bootConfig !== "object" || Array.isArray(bootConfig)) {
-    fail(`${relativeWorkspace}/${release.bootConfigFile} must contain an object`);
+    fail(`${relativeWorkspace} release bootConfig must contain an object`);
   }
   const peers = packageJson.peerDependencies;
   for (const peer of ["@deepseek-ai/cordis", "@deepseek-ai/dsh-llm"]) {
@@ -211,7 +209,7 @@ function main(): void {
     const packages = packageDirectories(root);
     for (const workspace of packages) {
       const packageJson = json(join(workspace, "package.json"));
-      const prefix = packageJson.dshRelease?.tagPrefix;
+      const prefix = json(join(workspace, "release/manifest.json")).tagPrefix;
       const plan = resolveReleasePlan(root, `${prefix}-v${packageJson.version}`);
       npmPack(root, plan, root, true);
     }
@@ -239,7 +237,7 @@ function main(): void {
         description: "Registry bootstrap for the sympoies/dsh-plugins OIDC trusted publisher",
         license: "MIT",
         repository: selectedPackage.packageJson.repository,
-        publishConfig: { access: "public", tag: "bootstrap" },
+        publishConfig: { access: "public", tag: "bootstrap", registry: "https://registry.npmjs.org/" },
         files: ["README.md", "LICENSE"],
       }, null, 2)}\n`);
       writeFileSync(join(staging, "README.md"), `# ${packageName}\n\nRegistry bootstrap only. Install a stable release instead.\n`);

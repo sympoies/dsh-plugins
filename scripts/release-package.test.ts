@@ -28,18 +28,18 @@ function fixture(overrides: Record<string, unknown> = {}) {
       "@deepseek-ai/cordis": "4.0.2",
       "@deepseek-ai/dsh-llm": "0.1.2-rc.1",
     },
-    dshRelease: {
-      tagPrefix: "dsh-example",
-      providerRoute: "example",
-      bootConfigFile: "release/boot-config.json",
-    },
     ...overrides,
   };
   writeFileSync(join(workspace, "package.json"), JSON.stringify(packageJson));
   writeFileSync(join(workspace, "README.md"), "example\n");
   writeFileSync(join(workspace, "LICENSE"), "MIT\n");
   mkdirSync(join(workspace, "release"));
-  writeFileSync(join(workspace, "release/boot-config.json"), "{}\n");
+  writeFileSync(join(workspace, "release/manifest.json"), JSON.stringify({
+    schemaVersion: "dsh-plugin-release.v1",
+    tagPrefix: "dsh-example",
+    providerRoute: "example",
+    bootConfig: {},
+  }));
   return root;
 }
 

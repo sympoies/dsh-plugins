@@ -45,7 +45,7 @@ if [[ "$mode" == verify-only ]]; then
   [[ -n "$remote_refs" ]] || die 'remote tag is missing'
   release_json="$(gh release view "$tag" --repo "$repository" --json tagName,url,assets)" || die 'release is missing'
   jq -e --arg tag "$tag" '.tagName == $tag and ([.assets[].name] | index("SHA256SUMS") != null) and ([.assets[].name] | index("release-lock.json") != null)' <<<"$release_json" >/dev/null || die 'release assets are incomplete'
-  published="$(npm view "$package_name@$version" version --json)" || die 'npm package version is missing'
+  published="$(npm view "$package_name@$version" version --json --registry=https://registry.npmjs.org/)" || die 'npm package version is missing'
   [[ "$(jq -r . <<<"$published")" == "$version" ]] || die 'npm registry version mismatch'
   printf 'status=published\ntag=%s\npackage=%s\nversion=%s\ncommit=%s\nreview=%s\nrelease_url=%s\n' "$tag" "$package_name" "$version" "$expected_head" "$review" "$(jq -r .url <<<"$release_json")"
   exit 0

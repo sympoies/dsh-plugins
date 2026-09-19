@@ -1,10 +1,10 @@
 # npm release contract
 
-Every workspace under `packages/` owns an independent SemVer version and a
-`dshRelease.tagPrefix`. A signed tag named `<tagPrefix>-v<version>` selects one
-workspace. The release workflow rejects ambiguous prefixes, version mismatch,
-private packages, incomplete metadata, missing runtime files, and unexpected
-tarball inventory.
+Every workspace under `packages/` owns an independent SemVer version and an
+excluded-from-package `release/manifest.json`. A signed tag named
+`<tagPrefix>-v<version>` selects one workspace. The release workflow rejects
+ambiguous prefixes, version mismatch, private packages, incomplete metadata,
+missing runtime files, and unexpected tarball inventory.
 
 The GitHub-hosted workflow typechecks the repository, runs the selected
 workspace's coverage suite, builds it, and packs it exactly once. It installs
@@ -32,7 +32,8 @@ non-default `bootstrap` dist-tag. It does not publish plugin code or occupy the
 settings:
 
 ```sh
-npm publish <bootstrap-tarball> --access public --tag bootstrap
+npm publish <bootstrap-tarball> --access public --tag bootstrap \
+  --registry=https://registry.npmjs.org/
 ```
 
 - organization: `sympoies`
