@@ -24,6 +24,8 @@ export interface ReleasePlan {
   tag_prefix: string;
   compatibility_peers: string[];
   smoke_module: string;
+  smoke_dependencies: Record<string, string>;
+  legacy_peer_deps: boolean;
   package_files: string[];
   peer_dependencies: Record<string, string>;
   main: string;
@@ -48,6 +50,14 @@ function packageDirectories(root: string): string[] {
     .map((name) => join(packageRoot, name))
     .filter((path) => statSync(path).isDirectory() && existsSync(join(path, "package.json")))
     .sort();
+}
+
+function exactVersion(value: unknown): value is string {
+  return typeof value === "string" && /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(value);
+}
+
+function packageName(value: string): boolean {
+  return /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/.test(value);
 }
 
 function validatePackage(root: string, workspace: string, packageJson: JsonObject): Omit<ReleasePlan, "tag"> {
@@ -106,9 +116,29 @@ function validatePackage(root: string, workspace: string, packageJson: JsonObjec
     fail(`${relativeWorkspace} peerDependencies must contain an object`);
   }
   for (const peer of compatibilityPeers) {
-    if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(peers?.[peer] ?? "")) {
+    if (!exactVersion(peers?.[peer])) {
       fail(`${relativeWorkspace} must pin exact ${peer} compatibility`);
     }
+  }
+  const legacyPeerDeps = release.legacyPeerDeps ?? false;
+  if (typeof legacyPeerDeps !== "boolean") {
+    fail(`${relativeWorkspace} release legacyPeerDeps must be a boolean`);
+  }
+  const smokeDependenciesValue = release.smokeDependencies ?? {};
+  if (
+    smokeDependenciesValue === null ||
+    typeof smokeDependenciesValue !== "object" ||
+    Array.isArray(smokeDependenciesValue)
+  ) {
+    fail(`${relativeWorkspace} release smokeDependencies must contain an object`);
+  }
+  const smokeDependencies: Record<string, string> = {};
+  for (const [name, version] of Object.entries(smokeDependenciesValue).sort(([left], [right]) => left.localeCompare(right))) {
+    if (!packageName(name)) fail(`${relativeWorkspace} release smokeDependencies contains an invalid package name`);
+    if (!exactVersion(version)) fail(`${relativeWorkspace} release smoke dependency ${name} must pin an exact version`);
+    if (name === packageJson.name) fail(`${relativeWorkspace} release smokeDependencies must not contain the package itself`);
+    if (Object.hasOwn(peers, name)) fail(`${relativeWorkspace} release smoke dependency ${name} must not duplicate peerDependencies`);
+    smokeDependencies[name] = version;
   }
   for (const script of ["build", "test:coverage"]) {
     if (typeof packageJson.scripts?.[script] !== "string") fail(`${relativeWorkspace} is missing the ${script} script`);
@@ -120,10 +150,28 @@ function validatePackage(root: string, workspace: string, packageJson: JsonObjec
     tag_prefix: release.tagPrefix,
     compatibility_peers: compatibilityPeers,
     smoke_module: smokeModule,
+    smoke_dependencies: smokeDependencies,
+    legacy_peer_deps: legacyPeerDeps,
     package_files: declaredPackageFiles,
     peer_dependencies: peers,
     main: packageJson.main,
     types: packageJson.types,
+  };
+}
+
+export function freshInstallSpec(plan: ReleasePlan, tarball: string): {
+  dependencies: Record<string, string>;
+  install_arguments: string[];
+} {
+  const installArguments = ["install", "--ignore-scripts", "--no-audit", "--no-fund", "--package-lock=false"];
+  if (plan.legacy_peer_deps) installArguments.push("--legacy-peer-deps");
+  return {
+    dependencies: {
+      ...plan.peer_dependencies,
+      ...plan.smoke_dependencies,
+      [plan.package_name]: `file:${tarball}`,
+    },
+    install_arguments: installArguments,
   };
 }
 
@@ -164,20 +212,54 @@ function npmPack(root: string, plan: ReleasePlan, outDir: string, dryRun: boolea
   return records[0];
 }
 
-function verifyFreshBoot(root: string, plan: ReleasePlan, tarball: string): void {
+type CommandRunner = (
+  command: string,
+  arguments_: string[],
+  options: { cwd: string; stdio: "inherit" },
+) => unknown;
+
+export function verifyFreshBoot(
+  root: string,
+  plan: ReleasePlan,
+  tarball: string,
+  run: CommandRunner = execFileSync,
+): void {
   const profile = mkdtempSync(join(tmpdir(), "dsh-plugin-release-profile-"));
   try {
-    const dependencies = { ...plan.peer_dependencies, [plan.package_name]: `file:${tarball}` };
+    const install = freshInstallSpec(plan, tarball);
+    const dependencies = install.dependencies;
     writeFileSync(join(profile, "package.json"), `${JSON.stringify({ private: true, type: "module", dependencies }, null, 2)}\n`);
-    execFileSync("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", "--package-lock=false"], {
+    run("npm", install.install_arguments, {
       cwd: profile,
       stdio: "inherit",
     });
     writeFileSync(join(profile, "boot.mjs"), readFileSync(join(root, plan.workspace, plan.smoke_module)));
-    execFileSync("node", ["boot.mjs"], { cwd: profile, stdio: "inherit" });
+    run("node", ["boot.mjs"], { cwd: profile, stdio: "inherit" });
   } finally {
     rmSync(profile, { recursive: true, force: true });
   }
+}
+
+export function releaseLock(
+  plan: ReleasePlan,
+  sourceCommit: string,
+  archive: string,
+  digest: string,
+): JsonObject {
+  return {
+    schema_version: "dsh-plugin-release-lock.v1",
+    package: plan.package_name,
+    version: plan.version,
+    tag: plan.tag,
+    source_commit: sourceCommit,
+    archive,
+    sha256: `sha256:${digest}`,
+    peer_dependencies: plan.peer_dependencies,
+    smoke_dependencies: plan.smoke_dependencies,
+    legacy_peer_deps: plan.legacy_peer_deps,
+    node: "24.16.0",
+    npm: "11.6.2",
+  };
 }
 
 function parseArguments(argv: string[]): { command: string; values: Map<string, string> } {
@@ -277,18 +359,10 @@ function main(): void {
     const tarball = join(outDir, record.filename);
     const digest = createHash("sha256").update(readFileSync(tarball)).digest("hex");
     writeFileSync(join(outDir, "SHA256SUMS"), `${digest}  ${record.filename}\n`);
-    writeFileSync(join(outDir, "release-lock.json"), `${JSON.stringify({
-      schema_version: "dsh-plugin-release-lock.v1",
-      package: plan.package_name,
-      version: plan.version,
-      tag: plan.tag,
-      source_commit: sourceCommit,
-      archive: record.filename,
-      sha256: `sha256:${digest}`,
-      peer_dependencies: plan.peer_dependencies,
-      node: "24.16.0",
-      npm: "11.6.2",
-    }, null, 2)}\n`);
+    writeFileSync(
+      join(outDir, "release-lock.json"),
+      `${JSON.stringify(releaseLock(plan, sourceCommit, record.filename, digest), null, 2)}\n`,
+    );
     verifyFreshBoot(root, plan, tarball);
     process.stdout.write(`${JSON.stringify({ ok: true, archive: tarball, sha256: `sha256:${digest}` })}\n`);
     return;
