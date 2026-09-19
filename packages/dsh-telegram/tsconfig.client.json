@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": [
+      "ES2023",
+      "DOM"
+    ],
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "types": [
+      "react"
+    ],
+    "moduleResolution": "Bundler",
+    "module": "ESNext"
+  },
+  "include": [
+    "src/client/**/*.ts",
+    "src/client/**/*.tsx"
+  ],
+  "exclude": []
+}
