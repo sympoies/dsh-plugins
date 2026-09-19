@@ -1,0 +1,43 @@
+# Repository-local routing for agents contributing to dsh-plugins.
+
+[[document]]
+context = "project-dev"
+scope = "project"
+path = "docs/development-testing.md"
+product = ["codex", "claude", "hermes"]
+phase = ["edit", "delivery"]
+required = true
+when = "always"
+notes = "Mandatory layered plugin validation, evidence, owner-routing, and self-improvement policy."
+
+[[document]]
+context = "project-dev"
+scope = "project"
+path = "CONTRIBUTING.md"
+product = ["codex", "claude", "hermes"]
+phase = ["edit", "delivery"]
+required = false
+when = "always"
+notes = "Concise contributor setup and routine validation entrypoint."
+
+[[document]]
+context = "project-dev"
+scope = "project"
+path = "docs/releases.md"
+product = ["codex", "claude", "hermes"]
+phase = "delivery"
+required = false
+when = "always"
+notes = "Release contract for explicitly authorized package publication work."
+
+[[validation]]
+context = "project-dev"
+product = ["codex", "claude", "hermes", "dsh"]
+commands = ["npm run check"]
+description = "Run the complete routine repository gate once for the stable candidate."
+
+[path_classes]
+production = [".gitignore", ".node-version", "AGENT_DOCS.toml", "package.json", "package-lock.json", "tsconfig.json", ".agents/**", ".github/workflows/**", "scripts/check-reviewed-release-source.ts", "scripts/release-package.ts", "packages/*/package.json", "packages/*/release/**", "packages/*/build.client.mjs", "packages/*/cordis.patch.yml", "packages/*/tsconfig*.json", "packages/dsh-telegram/src/**", "packages/llm-codex-subscription/src/index.ts", "packages/llm-codex-subscription/src/payload.ts"]
+test = ["vitest.config.ts", "scripts/*.test.ts", "packages/*/vitest.config.ts", "packages/*/test/**", "packages/llm-codex-subscription/src/*.test.ts"]
+docs = ["AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md", "README.md", "LICENSE", "SECURITY.md", "docs/**", "packages/README.md", "packages/*/README.md", "packages/*/LICENSE", "packages/*/NOTICE"]
+unmatched = "unknown"

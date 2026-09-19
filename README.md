@@ -58,6 +58,9 @@ npm ci --ignore-scripts
 npm run check
 ```
 
+Contributors making material plugin, compatibility, or packaging changes should
+follow the [layered development and testing policy](docs/development-testing.md).
+
 ## License
 
 [MIT](LICENSE)
