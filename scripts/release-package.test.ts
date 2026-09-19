@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   freshInstallSpec,
+  freshInstallSpecs,
   releaseLock,
   resolveReleasePlan,
   validateInventory,
@@ -77,6 +78,94 @@ describe("release plan", () => {
   it("rejects a package without exact declared compatibility", () => {
     const root = fixture({ peerDependencies: { "@deepseek-ai/dsh": "^0.1.1-rc.2" } });
     expect(() => resolveReleasePlan(root, "dsh-example-v1.2.3")).toThrow("pin exact @deepseek-ai/dsh");
+  });
+
+  it("declares and boots every exact compatibility profile", () => {
+    const root = fixture({
+      peerDependencies: {
+        "@deepseek-ai/cordis": "4.0.1 || 4.0.2",
+        "@deepseek-ai/dsh": "0.1.1-rc.2 || 0.1.2-rc.1",
+      },
+    }, {
+      compatibilityPeers: ["@deepseek-ai/cordis", "@deepseek-ai/dsh"],
+      compatibilityProfiles: {
+        "dsh-0.1.1-rc.2": {
+          "@deepseek-ai/cordis": "4.0.1",
+          "@deepseek-ai/dsh": "0.1.1-rc.2",
+        },
+        "dsh-0.1.2-rc.1": {
+          "@deepseek-ai/cordis": "4.0.2",
+          "@deepseek-ai/dsh": "0.1.2-rc.1",
+        },
+      },
+    });
+    const plan = resolveReleasePlan(root, "dsh-example-v1.2.3");
+
+    expect(freshInstallSpecs(plan, "/tmp/plugin.tgz").map(({ name, spec }) => ({
+      name,
+      dependencies: spec.dependencies,
+    }))).toEqual([
+      {
+        name: "dsh-0.1.1-rc.2",
+        dependencies: {
+          "@deepseek-ai/cordis": "4.0.1",
+          "@deepseek-ai/dsh": "0.1.1-rc.2",
+          "@sympoies/dsh-example": "file:/tmp/plugin.tgz",
+        },
+      },
+      {
+        name: "dsh-0.1.2-rc.1",
+        dependencies: {
+          "@deepseek-ai/cordis": "4.0.2",
+          "@deepseek-ai/dsh": "0.1.2-rc.1",
+          "@sympoies/dsh-example": "file:/tmp/plugin.tgz",
+        },
+      },
+    ]);
+
+    const calls: Array<{ command: string; arguments_: string[]; cwd: string }> = [];
+    const installed: Array<Record<string, string>> = [];
+    verifyFreshBoot(root, plan, "/tmp/plugin.tgz", (command, arguments_, options) => {
+      calls.push({ command, arguments_, cwd: options.cwd });
+      if (command === "npm") {
+        installed.push(JSON.parse(readFileSync(join(options.cwd, "package.json"), "utf8")).dependencies);
+      }
+    });
+    expect(calls.map(({ command, arguments_ }) => ({ command, arguments_ }))).toEqual([
+      { command: "npm", arguments_: freshInstallSpecs(plan, "/tmp/plugin.tgz")[0]?.spec.install_arguments },
+      { command: "node", arguments_: ["boot.mjs"] },
+      { command: "npm", arguments_: freshInstallSpecs(plan, "/tmp/plugin.tgz")[1]?.spec.install_arguments },
+      { command: "node", arguments_: ["boot.mjs"] },
+    ]);
+    expect(calls[0]?.cwd).toBe(calls[1]?.cwd);
+    expect(calls[2]?.cwd).toBe(calls[3]?.cwd);
+    expect(calls[0]?.cwd).not.toBe(calls[2]?.cwd);
+    expect(installed).toEqual(freshInstallSpecs(plan, "/tmp/plugin.tgz").map(({ spec }) => spec.dependencies));
+    expect(releaseLock(plan, "a".repeat(40), "plugin.tgz", "b".repeat(64))).toMatchObject({
+      compatibility_profiles: {
+        "dsh-0.1.1-rc.2": {
+          "@deepseek-ai/cordis": "4.0.1",
+          "@deepseek-ai/dsh": "0.1.1-rc.2",
+        },
+        "dsh-0.1.2-rc.1": {
+          "@deepseek-ai/cordis": "4.0.2",
+          "@deepseek-ai/dsh": "0.1.2-rc.1",
+        },
+      },
+    });
+  });
+
+  it("rejects compatibility alternatives without complete exact profiles", () => {
+    expect(() => resolveReleasePlan(fixture({
+      peerDependencies: { "@deepseek-ai/dsh": "0.1.1-rc.2 || 0.1.2-rc.1" },
+    }), "dsh-example-v1.2.3")).toThrow("compatibilityProfiles");
+    expect(() => resolveReleasePlan(fixture({
+      peerDependencies: { "@deepseek-ai/dsh": "0.1.1-rc.2 || 0.1.2-rc.1" },
+    }, {
+      compatibilityProfiles: {
+        old: { "@deepseek-ai/dsh": "0.1.1-rc.2" },
+      },
+    }), "dsh-example-v1.2.3")).toThrow("must cover declared alternatives");
   });
 
   it("rejects release metadata from the published package inventory", () => {

@@ -14,6 +14,10 @@ parts of verification:
   "schemaVersion": "dsh-plugin-release.v2",
   "tagPrefix": "dsh-example",
   "compatibilityPeers": ["@deepseek-ai/dsh"],
+  "compatibilityProfiles": {
+    "dsh-0.1.1-rc.2": { "@deepseek-ai/dsh": "0.1.1-rc.2" },
+    "dsh-0.1.2-rc.1": { "@deepseek-ai/dsh": "0.1.2-rc.1" }
+  },
   "smokeModule": "release/smoke.mjs",
   "legacyPeerDeps": true,
   "smokeDependencies": {
@@ -22,11 +26,15 @@ parts of verification:
 }
 ```
 
-Every named compatibility peer must exist in `peerDependencies` with an exact
-version. The smoke module is copied into the fresh installation profile and
-executed there, so it can compose the package through the DSH surfaces that the
-package actually implements. Keep both release files outside the package's
-`files` inventory.
+Every named compatibility peer must exist in `peerDependencies`. A package that
+supports one dependency set pins exact versions there. A package that supports
+multiple dependency sets declares only exact-version alternatives separated by
+` || ` and supplies `compatibilityProfiles`. Each profile pins every peer to one
+declared exact version, and the profiles must cover every declared alternative.
+The release gate installs and boots the packed tarball once per profile. The
+smoke module is copied into each fresh installation profile and executed there,
+so it can compose the package through the DSH surfaces that the package actually
+implements. Keep both release files outside the package's `files` inventory.
 
 `legacyPeerDeps` is optional and defaults to `false`. Set it to `true` only
 when the package's fresh verification profile requires npm's
@@ -41,8 +49,8 @@ Tarball inventory follows the safe literal paths declared by `package.json`
 
 The GitHub-hosted workflow typechecks the repository, runs the selected
 workspace's coverage suite, builds it, and packs it exactly once. It installs
-that tarball into a fresh temporary profile with its declared peer dependencies
-and runs the package-owned smoke module. The second job
+that tarball into a fresh temporary profile for every declared compatibility
+profile and runs the package-owned smoke module. The second job
 receives only the fixed tarball, checksum, and lock, publishes those exact bytes
 to npm through OIDC trusted publishing with provenance, and then creates an
 immutable checksum-bearing GitHub Release.
