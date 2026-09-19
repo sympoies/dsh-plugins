@@ -8,3 +8,6 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# Project-local Claude directory (skills live in .agents/skills/)
+.claude/
