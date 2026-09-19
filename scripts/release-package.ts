@@ -52,8 +52,17 @@ function packageDirectories(root: string): string[] {
     .sort();
 }
 
+const numericIdentifier = "(?:0|[1-9][0-9]*)";
+const prereleaseIdentifier = `(?:${numericIdentifier}|[0-9]*[A-Za-z-][0-9A-Za-z-]*)`;
+const buildIdentifier = "[0-9A-Za-z-]+";
+const exactVersionPattern = new RegExp(
+  `^${numericIdentifier}\\.${numericIdentifier}\\.${numericIdentifier}` +
+  `(?:-${prereleaseIdentifier}(?:\\.${prereleaseIdentifier})*)?` +
+  `(?:\\+${buildIdentifier}(?:\\.${buildIdentifier})*)?$`,
+);
+
 function exactVersion(value: unknown): value is string {
-  return typeof value === "string" && /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(value);
+  return typeof value === "string" && exactVersionPattern.test(value);
 }
 
 function packageName(value: string): boolean {

@@ -160,6 +160,20 @@ describe("release plan", () => {
       fixture({}, { smokeDependencies: { "@deepseek-ai/dsh": "0.1.1-rc.2" } }),
       "dsh-example-v1.2.3",
     )).toThrow("must not duplicate peerDependencies");
+    for (const invalidVersion of [
+      "1.2.3-",
+      "1.2.3..rc",
+      "01.2.3",
+      "1.02.3",
+      "1.2.03",
+      "1.2.3-01",
+      "1.2.3-rc.01",
+    ]) {
+      expect(() => resolveReleasePlan(
+        fixture({}, { smokeDependencies: { "@deepseek-ai/dsh-invariants": invalidVersion } }),
+        "dsh-example-v1.2.3",
+      ), invalidVersion).toThrow("must pin an exact version");
+    }
   });
 });
 
