@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "dsh-plugin-release.v2",
+  "tagPrefix": "dsh-telegram",
+  "compatibilityPeers": [
+    "@deepseek-ai/dsh"
+  ],
+  "smokeModule": "release/smoke.mjs"
+}
