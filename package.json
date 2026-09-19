@@ -9,8 +9,9 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "check": "npm run typecheck && npm test && npm run build && npm run pack:check",
-    "pack:check": "npm pack --dry-run --json --workspace @sympoies/dsh-llm-codex-subscription",
+    "bootstrap:prepare": "node scripts/release-package.ts bootstrap",
+    "check": "npm run typecheck && npm test && npm run test:coverage --workspaces --if-present && npm run build && npm run pack:check",
+    "pack:check": "node scripts/release-package.ts audit",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
@@ -24,6 +25,7 @@
     "url": "git+https://github.com/sympoies/dsh-plugins.git"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "4.1.11",
     "typescript": "5.9.3",
     "vitest": "4.1.11"
   }

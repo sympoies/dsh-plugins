@@ -14,12 +14,14 @@
   },
   "files": [
     "lib",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "node -e \"require('node:fs').rmSync('lib',{recursive:true,force:true})\" && tsc --project tsconfig.build.json",
     "prepack": "npm run build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage --root ../.. packages/llm-codex-subscription/src"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "4.0.2",
@@ -49,5 +51,10 @@
     "type": "git",
     "url": "git+https://github.com/sympoies/dsh-plugins.git",
     "directory": "packages/llm-codex-subscription"
+  },
+  "dshRelease": {
+    "tagPrefix": "dsh-llm-codex-subscription",
+    "providerRoute": "codex-subscription",
+    "bootConfigFile": "release/boot-config.json"
   }
 }

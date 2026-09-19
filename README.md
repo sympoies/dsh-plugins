@@ -34,6 +34,11 @@ directly. A governed application plugin may additionally consume the public
 contracts exposed by `dsh-applications` and `dsh-runtime-kit`; it must not copy
 their policy or lifecycle implementations.
 
+Each package is released independently to npm through OIDC trusted publishing,
+with the same tarball retained in an immutable checksum-bearing GitHub Release.
+See [`docs/releases.md`](docs/releases.md) for tag, provenance, bootstrap, and
+consumer pinning rules.
+
 ## Development
 
 ```sh

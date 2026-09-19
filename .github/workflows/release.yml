@@ -1,0 +1,122 @@
+name: Release npm package
+
+on:
+  push:
+    tags:
+      - '*-v*.*.*'
+
+permissions: {}
+
+jobs:
+  verify-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    outputs:
+      release_commit: ${{ steps.source.outputs.release_commit }}
+      package_name: ${{ steps.plan.outputs.package_name }}
+      version: ${{ steps.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.16.0
+          cache: npm
+          package-manager-cache: false
+      - run: npm install --global npm@11.6.2 --ignore-scripts
+      - name: Select exactly one workspace
+        id: plan
+        run: node scripts/release-package.ts plan --tag "$GITHUB_REF_NAME" --github-output "$GITHUB_OUTPUT"
+      - name: Verify signed reviewed source
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag_object="$(git rev-parse "refs/tags/$GITHUB_REF_NAME")"
+          test "$(git cat-file -t "$tag_object")" = tag
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq '.verification.verified')" = true
+          release_commit="$(git rev-list -n 1 "refs/tags/$GITHUB_REF_NAME")"
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          git merge-base --is-ancestor "$release_commit" origin/main
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/commits/$release_commit/pulls" | jq 'add' > "$RUNNER_TEMP/associations.json"
+          pr="$(node scripts/check-reviewed-release-source.ts --repository "$GITHUB_REPOSITORY" --commit "$release_commit" --associations "$RUNNER_TEMP/associations.json")"
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$pr/comments" | jq 'add' > "$RUNNER_TEMP/comments.json"
+          node scripts/check-reviewed-release-source.ts --repository "$GITHUB_REPOSITORY" --commit "$release_commit" --associations "$RUNNER_TEMP/associations.json" --comments "$RUNNER_TEMP/comments.json"
+          echo "release_commit=$release_commit" >> "$GITHUB_OUTPUT"
+      - run: npm ci --ignore-scripts
+      - name: Validate selected workspace
+        env:
+          PACKAGE_NAME: ${{ steps.plan.outputs.package_name }}
+        run: |
+          set -euo pipefail
+          npm run typecheck
+          npm run test:coverage --workspace "$PACKAGE_NAME"
+          npm run build --workspace "$PACKAGE_NAME"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+      - name: Pack once and verify fresh DSH boot
+        env:
+          RELEASE_COMMIT: ${{ steps.source.outputs.release_commit }}
+        run: node scripts/release-package.ts pack --tag "$GITHUB_REF_NAME" --out-dir "$RUNNER_TEMP/release-assets" --source-commit "$RELEASE_COMMIT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-${{ steps.source.outputs.release_commit }}
+          path: |
+            ${{ runner.temp }}/release-assets/*.tgz
+            ${{ runner.temp }}/release-assets/SHA256SUMS
+            ${{ runner.temp }}/release-assets/release-lock.json
+          if-no-files-found: error
+          compression-level: 0
+
+  publish:
+    needs: verify-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-${{ needs.verify-build.outputs.release_commit }}
+          path: release-assets
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.16.0
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: npm install --global npm@11.6.2 --ignore-scripts
+      - name: Verify fixed release bytes
+        working-directory: release-assets
+        run: |
+          set -euo pipefail
+          sha256sum -c SHA256SUMS
+          test "$(find . -maxdepth 1 -type f -name '*.tgz' -printf . | wc -c)" = 1
+      - name: Publish exact tarball with OIDC provenance
+        working-directory: release-assets
+        env:
+          PACKAGE_NAME: ${{ needs.verify-build.outputs.package_name }}
+          PACKAGE_VERSION: ${{ needs.verify-build.outputs.version }}
+        run: |
+          set -euo pipefail
+          archive="$(find . -maxdepth 1 -type f -name '*.tgz' -print)"
+          local_integrity="sha512-$(openssl dgst -sha512 -binary "$archive" | base64 -w0)"
+          published_integrity="$(npm view "$PACKAGE_NAME@$PACKAGE_VERSION" dist.integrity --json 2>/dev/null | jq -r '. // empty' || true)"
+          if [[ -z "$published_integrity" ]]; then
+            npm publish "$archive" --access public --provenance
+          elif [[ "$published_integrity" != "$local_integrity" ]]; then
+            echo "published npm version has different bytes" >&2
+            exit 1
+          fi
+          test "$(npm view "$PACKAGE_NAME@$PACKAGE_VERSION" dist.integrity --json | jq -r .)" = "$local_integrity"
+      - name: Create checksum-bearing GitHub release
+        working-directory: release-assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" ./*.tgz SHA256SUMS release-lock.json --verify-tag --title "$GITHUB_REF_NAME" --generate-notes --repo "$GITHUB_REPOSITORY"
