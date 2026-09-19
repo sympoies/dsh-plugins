@@ -1,6 +1,7 @@
 node_modules/
 dist/
 packages/*/lib/
+packages/*/coverage/
 coverage/
 *.tsbuildinfo
 .DS_Store
