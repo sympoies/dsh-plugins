@@ -22,8 +22,9 @@ export interface ReleasePlan {
   version: string;
   workspace: string;
   tag_prefix: string;
-  provider_route: string;
-  boot_config: JsonObject;
+  compatibility_peers: string[];
+  smoke_module: string;
+  package_files: string[];
   peer_dependencies: Record<string, string>;
   main: string;
   types: string;
@@ -68,6 +69,12 @@ function validatePackage(root: string, workspace: string, packageJson: JsonObjec
   if (!Array.isArray(packageJson.files) || requiredFiles.some((entry) => !packageJson.files.includes(entry))) {
     fail(`${relativeWorkspace} files must include lib, README.md, and LICENSE`);
   }
+  const packageFiles = packageJson.files as unknown[];
+  for (const entry of packageFiles) {
+    if (typeof entry !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(entry) || entry.includes("..") || entry.endsWith("/")) {
+      fail(`${relativeWorkspace} files must contain safe literal paths`);
+    }
+  }
   for (const file of ["README.md", "LICENSE"]) {
     if (!existsSync(join(workspace, file))) fail(`${relativeWorkspace}/${file} is missing`);
   }
@@ -76,15 +83,28 @@ function validatePackage(root: string, workspace: string, packageJson: JsonObjec
   const releasePath = join(workspace, "release/manifest.json");
   if (!existsSync(releasePath)) fail(`${relativeWorkspace}/release/manifest.json is missing`);
   const release = json(releasePath);
-  if (release.schemaVersion !== "dsh-plugin-release.v1") fail(`${relativeWorkspace} release manifest schema is unsupported`);
+  if (release.schemaVersion !== "dsh-plugin-release.v2") fail(`${relativeWorkspace} release manifest schema is unsupported`);
   if (!/^[a-z0-9][a-z0-9-]*$/.test(release?.tagPrefix ?? "")) fail(`${relativeWorkspace} release tagPrefix is invalid`);
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(release?.providerRoute ?? "")) fail(`${relativeWorkspace} release providerRoute is invalid`);
-  const bootConfig = release.bootConfig;
-  if (bootConfig === null || typeof bootConfig !== "object" || Array.isArray(bootConfig)) {
-    fail(`${relativeWorkspace} release bootConfig must contain an object`);
+  const compatibilityPeers = release.compatibilityPeers;
+  if (!Array.isArray(compatibilityPeers) || compatibilityPeers.length === 0 || compatibilityPeers.some((peer) => typeof peer !== "string")) {
+    fail(`${relativeWorkspace} release compatibilityPeers must contain package names`);
+  }
+  if (new Set(compatibilityPeers).size !== compatibilityPeers.length) {
+    fail(`${relativeWorkspace} release compatibilityPeers must be unique`);
+  }
+  const smokeModule = release.smokeModule;
+  if (typeof smokeModule !== "string" || !/^release\/[A-Za-z0-9][A-Za-z0-9._-]*\.mjs$/.test(smokeModule)) {
+    fail(`${relativeWorkspace} release smokeModule is invalid`);
+  }
+  if (!existsSync(join(workspace, smokeModule))) fail(`${relativeWorkspace}/${smokeModule} is missing`);
+  if (packageFiles.some((entry) => entry === "release" || entry === smokeModule || smokeModule.startsWith(`${entry}/`))) {
+    fail(`${relativeWorkspace} release smokeModule must be excluded from package files`);
   }
   const peers = packageJson.peerDependencies;
-  for (const peer of ["@deepseek-ai/cordis", "@deepseek-ai/dsh-llm"]) {
+  if (peers === null || typeof peers !== "object" || Array.isArray(peers)) {
+    fail(`${relativeWorkspace} peerDependencies must contain an object`);
+  }
+  for (const peer of compatibilityPeers) {
     if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(peers?.[peer] ?? "")) {
       fail(`${relativeWorkspace} must pin exact ${peer} compatibility`);
     }
@@ -97,8 +117,9 @@ function validatePackage(root: string, workspace: string, packageJson: JsonObjec
     version: packageJson.version,
     workspace: relativeWorkspace,
     tag_prefix: release.tagPrefix,
-    provider_route: release.providerRoute,
-    boot_config: bootConfig,
+    compatibility_peers: compatibilityPeers,
+    smoke_module: smokeModule,
+    package_files: packageFiles as string[],
     peer_dependencies: peers,
     main: packageJson.main,
     types: packageJson.types,
@@ -124,10 +145,10 @@ export function validateInventory(plan: ReleasePlan, files: string[]): void {
   for (const path of required) {
     if (!files.includes(path)) fail(`tarball is missing ${path}`);
   }
-  const unexpected = files.filter((path) =>
-    !["package/package.json", "package/README.md", "package/LICENSE"].includes(path) &&
-    !path.startsWith("package/lib/"),
-  );
+  const unexpected = files.filter((path) => {
+    if (path === "package/package.json") return false;
+    return !plan.package_files.some((entry) => path === `package/${entry}` || path.startsWith(`package/${entry}/`));
+  });
   if (unexpected.length > 0) fail(`tarball contains unexpected files: ${unexpected.join(", ")}`);
 }
 
@@ -142,7 +163,7 @@ function npmPack(root: string, plan: ReleasePlan, outDir: string, dryRun: boolea
   return records[0];
 }
 
-function verifyFreshBoot(plan: ReleasePlan, tarball: string): void {
+function verifyFreshBoot(root: string, plan: ReleasePlan, tarball: string): void {
   const profile = mkdtempSync(join(tmpdir(), "dsh-plugin-release-profile-"));
   try {
     const dependencies = { ...plan.peer_dependencies, [plan.package_name]: `file:${tarball}` };
@@ -151,22 +172,7 @@ function verifyFreshBoot(plan: ReleasePlan, tarball: string): void {
       cwd: profile,
       stdio: "inherit",
     });
-    writeFileSync(join(profile, "boot.mjs"), `
-import { Context } from "@deepseek-ai/cordis";
-import LlmRuntime from "@deepseek-ai/dsh-llm";
-import * as Plugin from ${JSON.stringify(plan.package_name)};
-const ctx = new Context();
-try {
-  await ctx.plugin(LlmRuntime);
-  await ctx.plugin(Plugin, ${JSON.stringify(plan.boot_config)});
-  const providers = ctx.llm.listProviders();
-  if (!providers.some((provider) => provider.id === ${JSON.stringify(plan.provider_route)})) {
-    throw new Error("selected provider route was not registered");
-  }
-} finally {
-  await ctx.fiber.dispose();
-}
-`);
+    writeFileSync(join(profile, "boot.mjs"), readFileSync(join(root, plan.workspace, plan.smoke_module)));
     execFileSync("node", ["boot.mjs"], { cwd: profile, stdio: "inherit" });
   } finally {
     rmSync(profile, { recursive: true, force: true });
@@ -282,7 +288,7 @@ function main(): void {
       node: "24.16.0",
       npm: "11.6.2",
     }, null, 2)}\n`);
-    verifyFreshBoot(plan, tarball);
+    verifyFreshBoot(root, plan, tarball);
     process.stdout.write(`${JSON.stringify({ ok: true, archive: tarball, sha256: `sha256:${digest}` })}\n`);
     return;
   }

@@ -6,10 +6,32 @@ excluded-from-package `release/manifest.json`. A signed tag named
 ambiguous prefixes, version mismatch, private packages, incomplete metadata,
 missing runtime files, and unexpected tarball inventory.
 
+The manifest uses `dsh-plugin-release.v2` and declares the package-specific
+parts of verification:
+
+```json
+{
+  "schemaVersion": "dsh-plugin-release.v2",
+  "tagPrefix": "dsh-example",
+  "compatibilityPeers": ["@deepseek-ai/dsh"],
+  "smokeModule": "release/smoke.mjs"
+}
+```
+
+Every named compatibility peer must exist in `peerDependencies` with an exact
+version. The smoke module is copied into the fresh installation profile and
+executed there, so it can compose the package through the DSH surfaces that the
+package actually implements. Keep both release files outside the package's
+`files` inventory.
+
+Tarball inventory follows the safe literal paths declared by `package.json`
+`files`. This permits package-owned runtime files such as `NOTICE` or
+`cordis.patch.yml` while continuing to reject undeclared source and test files.
+
 The GitHub-hosted workflow typechecks the repository, runs the selected
 workspace's coverage suite, builds it, and packs it exactly once. It installs
-that tarball into a fresh temporary profile with the package's exact DSH peer
-versions and proves Cordis composition and minimal plugin boot. The second job
+that tarball into a fresh temporary profile with its declared peer dependencies
+and runs the package-owned smoke module. The second job
 receives only the fixed tarball, checksum, and lock, publishes those exact bytes
 to npm through OIDC trusted publishing with provenance, and then creates an
 immutable checksum-bearing GitHub Release.

@@ -1,11 +1,9 @@
 {
-  "schemaVersion": "dsh-plugin-release.v1",
+  "schemaVersion": "dsh-plugin-release.v2",
   "tagPrefix": "dsh-llm-codex-subscription",
-  "providerRoute": "codex-subscription",
-  "bootConfig": {
-    "baseURL": "http://127.0.0.1:1/v1",
-    "models": [
-      { "id": "release-smoke" }
-    ]
-  }
+  "compatibilityPeers": [
+    "@deepseek-ai/cordis",
+    "@deepseek-ai/dsh-llm"
+  ],
+  "smokeModule": "release/smoke.mjs"
 }
