@@ -1,0 +1,53 @@
+{
+  "name": "@sympoies/dsh-llm-codex-subscription",
+  "version": "0.1.0",
+  "description": "DeepSeek Harness provider adapter for Codex subscription compatible Responses endpoints",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node -e \"require('node:fs').rmSync('lib',{recursive:true,force:true})\" && tsc --project tsconfig.build.json",
+    "prepack": "npm run build",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/dsh-attachment": "0.1.2-rc.1",
+    "@deepseek-ai/dsh-llm": "0.1.2-rc.1",
+    "@deepseek-ai/dsh-llm-pi-ai": "0.1.2-rc.1"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-launch-environment": "0.1.2-rc.1",
+    "@deepseek-ai/schemastery": "3.18.2",
+    "@earendil-works/pi-ai": "0.84.2"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/dsh-attachment": "0.1.2-rc.1",
+    "@deepseek-ai/dsh-llm": "0.1.2-rc.1",
+    "@deepseek-ai/dsh-llm-pi-ai": "0.1.2-rc.1"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sympoies/dsh-plugins.git",
+    "directory": "packages/llm-codex-subscription"
+  }
+}
