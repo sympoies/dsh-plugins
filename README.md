@@ -22,6 +22,9 @@ Each plugin belongs in its own TypeScript workspace package:
 ```text
 packages/
   <plugin-name>/
+    release/
+      manifest.json
+      smoke.mjs
     src/
     test/
     package.json

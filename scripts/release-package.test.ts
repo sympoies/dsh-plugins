@@ -18,28 +18,30 @@ function fixture(overrides: Record<string, unknown> = {}) {
     license: "MIT",
     main: "lib/index.js",
     types: "lib/index.d.ts",
-    files: ["lib", "README.md", "LICENSE"],
+    files: ["lib", "README.md", "LICENSE", "NOTICE", "cordis.patch.yml"],
     scripts: { build: "tsc", "test:coverage": "vitest --coverage" },
     repository: {
       url: "git+https://github.com/sympoies/dsh-plugins.git",
       directory: "packages/example",
     },
     peerDependencies: {
-      "@deepseek-ai/cordis": "4.0.2",
-      "@deepseek-ai/dsh-llm": "0.1.2-rc.1",
+      "@deepseek-ai/dsh": "0.1.1-rc.2",
     },
     ...overrides,
   };
   writeFileSync(join(workspace, "package.json"), JSON.stringify(packageJson));
   writeFileSync(join(workspace, "README.md"), "example\n");
   writeFileSync(join(workspace, "LICENSE"), "MIT\n");
+  writeFileSync(join(workspace, "NOTICE"), "Attribution\n");
+  writeFileSync(join(workspace, "cordis.patch.yml"), "plugins: []\n");
   mkdirSync(join(workspace, "release"));
   writeFileSync(join(workspace, "release/manifest.json"), JSON.stringify({
-    schemaVersion: "dsh-plugin-release.v1",
+    schemaVersion: "dsh-plugin-release.v2",
     tagPrefix: "dsh-example",
-    providerRoute: "example",
-    bootConfig: {},
+    compatibilityPeers: ["@deepseek-ai/dsh"],
+    smokeModule: "release/smoke.mjs",
   }));
+  writeFileSync(join(workspace, "release/smoke.mjs"), "export {};\n");
   return root;
 }
 
@@ -62,9 +64,14 @@ describe("release plan", () => {
     expect(() => resolveReleasePlan(fixture(), tag)).toThrow(message);
   });
 
-  it("rejects a package without exact DSH compatibility", () => {
-    const root = fixture({ peerDependencies: { "@deepseek-ai/cordis": "^4.0.2", "@deepseek-ai/dsh-llm": "0.1.2-rc.1" } });
-    expect(() => resolveReleasePlan(root, "dsh-example-v1.2.3")).toThrow("pin exact @deepseek-ai/cordis");
+  it("rejects a package without exact declared compatibility", () => {
+    const root = fixture({ peerDependencies: { "@deepseek-ai/dsh": "^0.1.1-rc.2" } });
+    expect(() => resolveReleasePlan(root, "dsh-example-v1.2.3")).toThrow("pin exact @deepseek-ai/dsh");
+  });
+
+  it("rejects release metadata from the published package inventory", () => {
+    const root = fixture({ files: ["lib", "README.md", "LICENSE", "release/manifest.json"] });
+    expect(() => resolveReleasePlan(root, "dsh-example-v1.2.3")).toThrow("release files must be excluded");
   });
 });
 
@@ -75,6 +82,8 @@ describe("package inventory", () => {
       "package/package.json",
       "package/README.md",
       "package/LICENSE",
+      "package/NOTICE",
+      "package/cordis.patch.yml",
       "package/lib/index.js",
       "package/lib/index.d.ts",
     ];
