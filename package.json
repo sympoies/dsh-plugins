@@ -8,7 +8,9 @@
     "packages/*"
   ],
   "scripts": {
-    "check": "npm run typecheck && npm test",
+    "build": "npm run build --workspaces --if-present",
+    "check": "npm run typecheck && npm test && npm run build && npm run pack:check",
+    "pack:check": "npm pack --dry-run --json --workspace @sympoies/dsh-llm-codex-subscription",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
@@ -23,6 +25,6 @@
   },
   "devDependencies": {
     "typescript": "5.9.3",
-    "vitest": "4.1.8"
+    "vitest": "4.1.11"
   }
 }

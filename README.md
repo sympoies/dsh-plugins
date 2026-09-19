@@ -43,9 +43,10 @@ npm ci --ignore-scripts
 npm run check
 ```
 
-The root workspace intentionally contains no placeholder plugin. Add the first
-real package under `packages/` when its behavior and DSH extension surface are
-known.
+The first package is
+[`@sympoies/dsh-llm-codex-subscription`](packages/llm-codex-subscription/README.md),
+a portable provider adapter for Codex subscription compatible Responses
+endpoints.
 
 ## License
 
