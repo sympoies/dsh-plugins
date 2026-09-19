@@ -48,7 +48,13 @@ jobs:
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/commits/$release_commit/pulls" | jq 'add' > "$RUNNER_TEMP/associations.json"
           pr="$(node scripts/check-reviewed-release-source.ts --repository "$GITHUB_REPOSITORY" --commit "$release_commit" --associations "$RUNNER_TEMP/associations.json")"
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$pr/comments" | jq 'add' > "$RUNNER_TEMP/comments.json"
-          node scripts/check-reviewed-release-source.ts --repository "$GITHUB_REPOSITORY" --commit "$release_commit" --associations "$RUNNER_TEMP/associations.json" --comments "$RUNNER_TEMP/comments.json"
+          printf '{}\n' > "$RUNNER_TEMP/reviewers.json"
+          jq -r '.[] | select(.body | contains("forge-cli:review-state:v1")) | .user.login' "$RUNNER_TEMP/comments.json" | sort -u | while IFS= read -r login; do
+            permission="$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$login/permission" --jq '.permission')"
+            jq --arg login "$login" --arg permission "$permission" '. + {($login): $permission}' "$RUNNER_TEMP/reviewers.json" > "$RUNNER_TEMP/reviewers.next.json"
+            mv "$RUNNER_TEMP/reviewers.next.json" "$RUNNER_TEMP/reviewers.json"
+          done
+          node scripts/check-reviewed-release-source.ts --repository "$GITHUB_REPOSITORY" --commit "$release_commit" --associations "$RUNNER_TEMP/associations.json" --comments "$RUNNER_TEMP/comments.json" --reviewers "$RUNNER_TEMP/reviewers.json"
           echo "release_commit=$release_commit" >> "$GITHUB_OUTPUT"
       - run: npm ci --ignore-scripts
       - name: Validate selected workspace
