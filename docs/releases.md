@@ -14,7 +14,11 @@ parts of verification:
   "schemaVersion": "dsh-plugin-release.v2",
   "tagPrefix": "dsh-example",
   "compatibilityPeers": ["@deepseek-ai/dsh"],
-  "smokeModule": "release/smoke.mjs"
+  "smokeModule": "release/smoke.mjs",
+  "legacyPeerDeps": true,
+  "smokeDependencies": {
+    "@deepseek-ai/dsh-invariants": "0.1.1-rc.2"
+  }
 }
 ```
 
@@ -23,6 +27,13 @@ version. The smoke module is copied into the fresh installation profile and
 executed there, so it can compose the package through the DSH surfaces that the
 package actually implements. Keep both release files outside the package's
 `files` inventory.
+
+`legacyPeerDeps` is optional and defaults to `false`. Set it to `true` only
+when the package's fresh verification profile requires npm's
+`--legacy-peer-deps` resolver mode. `smokeDependencies` is an optional map of
+exact versions installed only in that profile. These entries must remain
+separate from the package's public `peerDependencies`; neither release manifest
+field is published in the package tarball.
 
 Tarball inventory follows the safe literal paths declared by `package.json`
 `files`. This permits package-owned runtime files such as `NOTICE` or
