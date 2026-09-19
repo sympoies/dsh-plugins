@@ -22,4 +22,9 @@ describe("npm release workflow", () => {
     expect(workflow).toContain("jq -r 'strings'");
     expect(workflow).not.toContain("jq -r '. // empty'");
   });
+
+  it("waits for a newly published version to become readable", () => {
+    expect(workflow).toContain("for attempt in {1..12}; do");
+    expect(workflow).toContain("npm registry did not expose the published version in time");
+  });
 });
