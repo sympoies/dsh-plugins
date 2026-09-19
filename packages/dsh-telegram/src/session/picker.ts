@@ -40,6 +40,8 @@ export interface SessionPickerOptions {
 
 export class SessionPicker {
   private readonly logger: Logger
+  /** One outstanding keyboard per chat or group topic. */
+  private readonly active = new Map<string, string>()
 
   constructor(private readonly options: SessionPickerOptions) {
     this.logger = options.logger ?? SILENT_LOGGER
@@ -51,6 +53,11 @@ export class SessionPicker {
    * @param target - the conversation asking.
    */
   async offer(target: ChatTarget): Promise<void> {
+    const key = targetKey(target)
+    const previous = this.active.get(key)
+    if (previous !== undefined) this.options.pending.cancel(previous)
+    this.active.delete(key)
+
     const current = this.options.currentSession(target)
     const past = this.options
       .history.forChat(target)
@@ -68,6 +75,7 @@ export class SessionPicker {
     }
 
     const waiter = this.options.pending.open({})
+    this.active.set(key, waiter.token)
     const keyboard = past.map((entry, index) => [
       {
         text: labelOf(entry),
@@ -75,7 +83,7 @@ export class SessionPicker {
       },
     ])
 
-    await this.say(
+    const delivered = await this.say(
       target,
       [
         '<b>Earlier conversations</b>',
@@ -84,8 +92,10 @@ export class SessionPicker {
       ].join('\n'),
       keyboard,
     )
+    if (!delivered) this.options.pending.cancel(waiter.token)
 
     const pressed = await waiter.promise
+    if (this.active.get(key) === waiter.token) this.active.delete(key)
     if (typeof pressed !== 'string') return
 
     const index = Number.parseInt(pressed, 10)
@@ -129,13 +139,20 @@ export class SessionPicker {
     target: ChatTarget,
     html: string,
     keyboard?: { text: string; callbackData: string }[][],
-  ): Promise<void> {
+  ): Promise<boolean> {
     try {
       await this.options.surface.send(target, html, keyboard)
+      return true
     } catch (error) {
       this.logger.warn('[dsh-telegram] could not offer the session list', error)
+      return false
     }
   }
+}
+
+/** Stable identity for a private chat, group, or one group topic. */
+function targetKey(target: ChatTarget): string {
+  return target.threadId === undefined ? target.chatId : `${target.chatId}#${target.threadId}`
 }
 
 /** A button label: what the conversation opened with, or when it started. */
