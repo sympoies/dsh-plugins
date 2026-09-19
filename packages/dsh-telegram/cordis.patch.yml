@@ -1,0 +1,14 @@
+# dsh-telegram — DSH bundle patch.
+#
+# One loader entry. `inject` lists only the services the plugin cannot run
+# without: an agent registry to drive, and the credential seam holding the bot
+# token. Listing a service here makes it REQUIRED — the entry never activates
+# without it — so the interactive seams are bound at runtime instead, inside
+# apply() with ctx.inject(). That is what lets this load on a profile that
+# provides neither user-questions nor approvals.
+- insert:
+    - id: telegram
+      name: '@sympoies/dsh-telegram'
+      inject:
+        - agents
+        - credentials

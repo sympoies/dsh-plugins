@@ -1,0 +1,19 @@
+dsh-telegram provenance notice
+
+This package is independently maintained by Sympoies.
+
+It is derived from @ashafizullah/dsh-telegram 0.5.1, originally published by
+Adam Suchiha Fizullah from:
+
+  https://github.com/ashafizullah/dsh-telegram
+
+Imported source commit:
+
+  183c53e1098ab49ee8985fa9631aa39b60a803d4
+
+The initial Sympoies release also incorporates the reasoning-effort route fix
+from the downstream contribution at commit:
+
+  13c6844995d6cb73aae664495bee456afa76fdf1
+
+The original copyright and MIT license are retained in LICENSE.
