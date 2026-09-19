@@ -1,6 +1,6 @@
 {
   "name": "@sympoies/dsh-telegram",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Telegram channel for DeepSeek Harness — real Telegram markdown, and answer the agent's questions and approvals straight from chat",
   "type": "module",
   "license": "MIT",
@@ -53,11 +53,11 @@
     "prepack": "npm run check"
   },
   "dependencies": {
-    "@deepseek-ai/cordis": "4.0.1",
-    "@deepseek-ai/schemastery": "3.18.1"
+    "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/schemastery": "3.18.2"
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh": "0.1.1-rc.2"
+    "@deepseek-ai/dsh": "0.1.2-rc.1"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/dsh": {

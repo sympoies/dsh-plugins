@@ -23,8 +23,8 @@ const cordisEntryPath = require.resolve('@deepseek-ai/cordis', {
   paths: [dirname(telegramManifestPath)],
 })
 
-if (dshManifest.version !== '0.1.1-rc.2') {
-  throw new Error(`expected @deepseek-ai/dsh@0.1.1-rc.2, received ${dshManifest.version}`)
+if (dshManifest.version !== '0.1.2-rc.1') {
+  throw new Error(`expected @deepseek-ai/dsh@0.1.2-rc.1, received ${dshManifest.version}`)
 }
 if (telegramManifest.name !== '@sympoies/dsh-telegram') {
   throw new Error(`unexpected Telegram package identity ${telegramManifest.name}`)
@@ -51,13 +51,28 @@ try {
   ctx.provide('credentials', { resolve: async () => undefined })
   ctx.provide('settings', {
     register: () => ({
-      get: () => ({ enabled: false }),
+      get: () => ({ enabled: true, tokenRef: 'release-token' }),
       watch: () => () => undefined,
       update: async () => undefined,
     }),
   })
   try {
-    await ctx.plugin(Telegram, { enabled: false })
+    await ctx.plugin(Telegram, { enabled: true, tokenRef: 'release-token' })
+    const statusPath = join(dshHome, 'dsh-telegram', 'status.json')
+    let status
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      try {
+        status = JSON.parse(readFileSync(statusPath, 'utf8'))
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, 25))
+        continue
+      }
+      if (status.state === 'idle') break
+      await new Promise((resolve) => setTimeout(resolve, 25))
+    }
+    if (status?.state !== 'idle' || !status.detail?.includes('release-token')) {
+      throw new Error('enabled Telegram plugin did not reach its expected credential-gated idle state')
+    }
   } finally {
     await ctx.fiber.dispose()
   }
