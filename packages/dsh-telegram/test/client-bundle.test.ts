@@ -226,16 +226,9 @@ describe('client bundle — translations', () => {
   }
 
   it('files its strings under the shell\'s locale tags', async () => {
-    // The shell selects by `en` / `zh`, not BCP 47. A dictionary under `en-US`
+    // The shell selects by `en`, not BCP 47. A dictionary under `en-US`
     // matches nothing and every label renders as its own key.
-    expect(Object.keys(await dictionaries()).sort()).toEqual(['en', 'zh'])
-  })
-
-  it('says the same things in both shipped locales', async () => {
-    const locales = await dictionaries()
-    const english = Object.keys(locales.en ?? {}).sort()
-    const chinese = Object.keys(locales.zh ?? {}).sort()
-    expect(chinese).toEqual(english)
+    expect(Object.keys(await dictionaries())).toEqual(['en'])
   })
 
   it('leaves no string empty, which would render as a blank control', async () => {
@@ -259,6 +252,6 @@ describe('client bundle — translations', () => {
     })
 
     const [, dictionary] = register.mock.calls[0] as [string, Record<string, unknown>]
-    expect(Object.keys(dictionary).sort()).toEqual(['en', 'zh'])
+    expect(Object.keys(dictionary)).toEqual(['en'])
   })
 })
