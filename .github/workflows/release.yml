@@ -113,7 +113,7 @@ jobs:
           set -euo pipefail
           archive="$(find . -maxdepth 1 -type f -name '*.tgz' -print)"
           local_integrity="sha512-$(openssl dgst -sha512 -binary "$archive" | base64 -w0)"
-          published_integrity="$(npm view "$PACKAGE_NAME@$PACKAGE_VERSION" dist.integrity --json 2>/dev/null | jq -r '. // empty' || true)"
+          published_integrity="$(npm view "$PACKAGE_NAME@$PACKAGE_VERSION" dist.integrity --json 2>/dev/null | jq -r 'strings' || true)"
           if [[ -z "$published_integrity" ]]; then
             npm publish "$archive" --access public --provenance
           elif [[ "$published_integrity" != "$local_integrity" ]]; then
