@@ -17,4 +17,9 @@ describe("npm release workflow", () => {
     expect(workflow).toContain("sha256sum -c SHA256SUMS");
     expect(workflow).toContain("gh release create");
   });
+
+  it("treats an npm missing-version error response as unpublished", () => {
+    expect(workflow).toContain("jq -r 'strings'");
+    expect(workflow).not.toContain("jq -r '. // empty'");
+  });
 });
