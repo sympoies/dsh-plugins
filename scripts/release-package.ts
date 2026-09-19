@@ -23,6 +23,7 @@ export interface ReleasePlan {
   workspace: string;
   tag_prefix: string;
   compatibility_peers: string[];
+  compatibility_profiles: Record<string, Record<string, string>>;
   smoke_module: string;
   smoke_dependencies: Record<string, string>;
   legacy_peer_deps: boolean;
@@ -63,6 +64,14 @@ const exactVersionPattern = new RegExp(
 
 function exactVersion(value: unknown): value is string {
   return typeof value === "string" && exactVersionPattern.test(value);
+}
+
+function exactAlternatives(value: unknown): string[] | undefined {
+  if (typeof value !== "string") return undefined;
+  const versions = value.split(" || ");
+  if (versions.length === 0 || versions.some((version) => !exactVersion(version))) return undefined;
+  if (new Set(versions).size !== versions.length) return undefined;
+  return versions;
 }
 
 function packageName(value: string): boolean {
@@ -125,8 +134,60 @@ function validatePackage(root: string, workspace: string, packageJson: JsonObjec
     fail(`${relativeWorkspace} peerDependencies must contain an object`);
   }
   for (const peer of compatibilityPeers) {
-    if (!exactVersion(peers?.[peer])) {
+    if (!Object.hasOwn(peers, peer)) fail(`${relativeWorkspace} compatibility peer ${peer} is not a peerDependency`);
+  }
+  const peerAlternatives = new Map<string, string[]>();
+  for (const [peer, declaration] of Object.entries(peers).sort(([left], [right]) => left.localeCompare(right))) {
+    const alternatives = exactAlternatives(declaration);
+    if (alternatives === undefined) {
       fail(`${relativeWorkspace} must pin exact ${peer} compatibility`);
+    }
+    peerAlternatives.set(peer, alternatives);
+  }
+  const compatibilityProfilesValue = release.compatibilityProfiles ?? {};
+  if (
+    compatibilityProfilesValue === null ||
+    typeof compatibilityProfilesValue !== "object" ||
+    Array.isArray(compatibilityProfilesValue)
+  ) {
+    fail(`${relativeWorkspace} release compatibilityProfiles must contain an object`);
+  }
+  const compatibilityProfiles: Record<string, Record<string, string>> = {};
+  for (const [profile, pinsValue] of Object.entries(compatibilityProfilesValue).sort(([left], [right]) => left.localeCompare(right))) {
+    if (!/^[a-z0-9][a-z0-9._-]*$/.test(profile)) {
+      fail(`${relativeWorkspace} release compatibilityProfiles contains an invalid profile name`);
+    }
+    if (pinsValue === null || typeof pinsValue !== "object" || Array.isArray(pinsValue)) {
+      fail(`${relativeWorkspace} release compatibility profile ${profile} must contain an object`);
+    }
+    const pins = pinsValue as Record<string, unknown>;
+    const declaredNames = [...peerAlternatives.keys()];
+    const pinnedNames = Object.keys(pins).sort();
+    if (JSON.stringify(pinnedNames) !== JSON.stringify(declaredNames)) {
+      fail(`${relativeWorkspace} release compatibility profile ${profile} must pin every peerDependency exactly once`);
+    }
+    const exactPins: Record<string, string> = {};
+    for (const peer of declaredNames) {
+      const version = pins[peer];
+      if (!exactVersion(version)) {
+        fail(`${relativeWorkspace} release compatibility profile ${profile} must pin exact ${peer}`);
+      }
+      if (!peerAlternatives.get(peer)?.includes(version)) {
+        fail(`${relativeWorkspace} release compatibility profile ${profile} pins undeclared ${peer}@${version}`);
+      }
+      exactPins[peer] = version;
+    }
+    compatibilityProfiles[profile] = exactPins;
+  }
+  const hasAlternatives = [...peerAlternatives.values()].some((versions) => versions.length > 1);
+  if (hasAlternatives && Object.keys(compatibilityProfiles).length === 0) {
+    fail(`${relativeWorkspace} release compatibilityProfiles must verify every declared alternative`);
+  }
+  for (const [peer, alternatives] of peerAlternatives) {
+    if (alternatives.length === 1 && Object.keys(compatibilityProfiles).length === 0) continue;
+    const covered = new Set(Object.values(compatibilityProfiles).map((profile) => profile[peer]));
+    if (alternatives.some((version) => !covered.has(version)) || covered.size !== alternatives.length) {
+      fail(`${relativeWorkspace} release compatibilityProfiles must cover declared alternatives for ${peer}`);
     }
   }
   const legacyPeerDeps = release.legacyPeerDeps ?? false;
@@ -158,6 +219,7 @@ function validatePackage(root: string, workspace: string, packageJson: JsonObjec
     workspace: relativeWorkspace,
     tag_prefix: release.tagPrefix,
     compatibility_peers: compatibilityPeers,
+    compatibility_profiles: compatibilityProfiles,
     smoke_module: smokeModule,
     smoke_dependencies: smokeDependencies,
     legacy_peer_deps: legacyPeerDeps,
@@ -168,7 +230,11 @@ function validatePackage(root: string, workspace: string, packageJson: JsonObjec
   };
 }
 
-export function freshInstallSpec(plan: ReleasePlan, tarball: string): {
+export function freshInstallSpec(
+  plan: ReleasePlan,
+  tarball: string,
+  peerDependencies: Record<string, string> = plan.peer_dependencies,
+): {
   dependencies: Record<string, string>;
   install_arguments: string[];
 } {
@@ -176,12 +242,21 @@ export function freshInstallSpec(plan: ReleasePlan, tarball: string): {
   if (plan.legacy_peer_deps) installArguments.push("--legacy-peer-deps");
   return {
     dependencies: {
-      ...plan.peer_dependencies,
+      ...peerDependencies,
       ...plan.smoke_dependencies,
       [plan.package_name]: `file:${tarball}`,
     },
     install_arguments: installArguments,
   };
+}
+
+export function freshInstallSpecs(plan: ReleasePlan, tarball: string): Array<{
+  name: string;
+  spec: ReturnType<typeof freshInstallSpec>;
+}> {
+  const profiles = Object.entries(plan.compatibility_profiles);
+  if (profiles.length === 0) return [{ name: "declared", spec: freshInstallSpec(plan, tarball) }];
+  return profiles.map(([name, pins]) => ({ name, spec: freshInstallSpec(plan, tarball, pins) }));
 }
 
 export function resolveReleasePlan(root: string, tag: string): ReleasePlan {
@@ -233,19 +308,20 @@ export function verifyFreshBoot(
   tarball: string,
   run: CommandRunner = execFileSync,
 ): void {
-  const profile = mkdtempSync(join(tmpdir(), "dsh-plugin-release-profile-"));
-  try {
-    const install = freshInstallSpec(plan, tarball);
-    const dependencies = install.dependencies;
-    writeFileSync(join(profile, "package.json"), `${JSON.stringify({ private: true, type: "module", dependencies }, null, 2)}\n`);
-    run("npm", install.install_arguments, {
-      cwd: profile,
-      stdio: "inherit",
-    });
-    writeFileSync(join(profile, "boot.mjs"), readFileSync(join(root, plan.workspace, plan.smoke_module)));
-    run("node", ["boot.mjs"], { cwd: profile, stdio: "inherit" });
-  } finally {
-    rmSync(profile, { recursive: true, force: true });
+  for (const { spec: install } of freshInstallSpecs(plan, tarball)) {
+    const profile = mkdtempSync(join(tmpdir(), "dsh-plugin-release-profile-"));
+    try {
+      const dependencies = install.dependencies;
+      writeFileSync(join(profile, "package.json"), `${JSON.stringify({ private: true, type: "module", dependencies }, null, 2)}\n`);
+      run("npm", install.install_arguments, {
+        cwd: profile,
+        stdio: "inherit",
+      });
+      writeFileSync(join(profile, "boot.mjs"), readFileSync(join(root, plan.workspace, plan.smoke_module)));
+      run("node", ["boot.mjs"], { cwd: profile, stdio: "inherit" });
+    } finally {
+      rmSync(profile, { recursive: true, force: true });
+    }
   }
 }
 
@@ -264,6 +340,7 @@ export function releaseLock(
     archive,
     sha256: `sha256:${digest}`,
     peer_dependencies: plan.peer_dependencies,
+    compatibility_profiles: plan.compatibility_profiles,
     smoke_dependencies: plan.smoke_dependencies,
     legacy_peer_deps: plan.legacy_peer_deps,
     node: "24.16.0",
