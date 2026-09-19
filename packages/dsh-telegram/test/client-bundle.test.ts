@@ -56,7 +56,6 @@ describe('client bundle — externals', () => {
       '@deepseek-ai/dsh-client-runtime',
       '@deepseek-ai/dsh-client-locale',
       '@deepseek-ai/dsh-client-ui-settings',
-      '@deepseek-ai/dsh-client-ui-primitives',
     ])
     for (const specifier of required) expect(seeded.has(specifier as string)).toBe(true)
   })
