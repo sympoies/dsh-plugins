@@ -38,7 +38,13 @@ trap '/usr/bin/find "$temporary_root" -depth -delete' EXIT INT TERM
 gh api --paginate --slurp "repos/$repository/commits/$expected_head/pulls" | jq 'add' > "$temporary_root/associations.json"
 pull_request="$(node scripts/check-reviewed-release-source.ts --repository "$repository" --commit "$expected_head" --associations "$temporary_root/associations.json")"
 gh api --paginate --slurp "repos/$repository/issues/$pull_request/comments" | jq 'add' > "$temporary_root/comments.json"
-review="$(node scripts/check-reviewed-release-source.ts --repository "$repository" --commit "$expected_head" --associations "$temporary_root/associations.json" --comments "$temporary_root/comments.json")"
+printf '{}\n' > "$temporary_root/reviewers.json"
+jq -r '.[] | select(.body | contains("forge-cli:review-state:v1")) | .user.login' "$temporary_root/comments.json" | sort -u | while IFS= read -r login; do
+  permission="$(gh api "repos/$repository/collaborators/$login/permission" --jq '.permission')"
+  jq --arg login "$login" --arg permission "$permission" '. + {($login): $permission}' "$temporary_root/reviewers.json" > "$temporary_root/reviewers.next.json"
+  mv "$temporary_root/reviewers.next.json" "$temporary_root/reviewers.json"
+done
+review="$(node scripts/check-reviewed-release-source.ts --repository "$repository" --commit "$expected_head" --associations "$temporary_root/associations.json" --comments "$temporary_root/comments.json" --reviewers "$temporary_root/reviewers.json")"
 remote_refs="$(git ls-remote --tags origin "refs/tags/$tag" "refs/tags/$tag^{}")"
 
 if [[ "$mode" == verify-only ]]; then

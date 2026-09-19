@@ -9,11 +9,12 @@ const script = resolve(import.meta.dirname, "check-reviewed-release-source.ts");
 const commit = "1".repeat(40);
 const head = "2".repeat(40);
 
-function fixture({ findings = {}, reviewedHead = head } = {}) {
+function fixture({ findings = {}, reviewedHead = head, association = "OWNER", permission = "admin" } = {}) {
   const root = mkdtempSync(join(tmpdir(), "dsh-reviewed-release-test-"));
   roots.push(root);
   const associations = join(root, "associations.json");
   const comments = join(root, "comments.json");
+  const reviewers = join(root, "reviewers.json");
   writeFileSync(associations, JSON.stringify([{
     number: 7,
     state: "closed",
@@ -31,10 +32,12 @@ function fixture({ findings = {}, reviewedHead = head } = {}) {
   };
   const marker = Buffer.from(JSON.stringify(state)).toString("hex");
   writeFileSync(comments, JSON.stringify([{
-    author_association: "OWNER",
+    user: { login: "reviewer" },
+    author_association: association,
     body: `Review checkpoint.\n<!-- forge-cli:review-state:v1 ${marker} -->`,
   }]));
-  return { associations, comments };
+  writeFileSync(reviewers, JSON.stringify({ reviewer: permission }));
+  return { associations, comments, reviewers };
 }
 
 afterEach(() => {
@@ -48,12 +51,18 @@ function verify(paths: ReturnType<typeof fixture>) {
     "--commit", commit,
     "--associations", paths.associations,
     "--comments", paths.comments,
+    "--reviewers", paths.reviewers,
   ], { encoding: "utf8" });
 }
 
 describe("reviewed release source", () => {
   it("accepts the exact merged head with a converged review checkpoint", () => {
     expect(JSON.parse(verify(fixture())).reviewed_head).toBe(head);
+  });
+
+  it("uses repository permission when workflow tokens redact organization membership", () => {
+    expect(JSON.parse(verify(fixture({ association: "CONTRIBUTOR", permission: "maintain" }))).reviewed_head).toBe(head);
+    expect(() => verify(fixture({ association: "CONTRIBUTOR", permission: "read" }))).toThrow();
   });
 
   it("rejects stale review state and open findings", () => {

@@ -58,10 +58,18 @@ if (commentsPath === undefined) {
 
 const comments = readJson(commentsPath, "comments");
 if (!Array.isArray(comments)) fail("comments must be an array");
+const reviewersPath = values.get("--reviewers");
+const reviewers = reviewersPath === undefined ? {} : readJson(reviewersPath, "reviewers");
+if (reviewers === null || typeof reviewers !== "object" || Array.isArray(reviewers)) {
+  fail("reviewers must be an object");
+}
 const states = comments.flatMap((comment: any) => {
+  const login = comment?.user?.login;
+  const permission = typeof login === "string" ? reviewers[login] : undefined;
   if (
     typeof comment?.body !== "string" ||
-    !["OWNER", "MEMBER", "COLLABORATOR"].includes(comment?.author_association)
+    (!["OWNER", "MEMBER", "COLLABORATOR"].includes(comment?.author_association)
+      && !["admin", "maintain", "write"].includes(permission))
   ) return [];
   const matches = [...comment.body.matchAll(/<!-- forge-cli:review-state:v1 ([0-9a-f]+) -->/gu)];
   return matches.flatMap((match) => {
