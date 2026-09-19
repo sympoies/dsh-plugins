@@ -41,6 +41,8 @@ async function build(
     richMessages?: boolean
     /** Set false to run without diagnostics. */
     diagnostics?: boolean
+    /** Conversation picker exposed by /sessions. */
+    sessions?: { offer: (target: { chatId: string }) => Promise<void>; handleCallback: () => boolean }
     /** Seams to report as composed; the rest report as absent. */
     seams?: string[]
     /** Failures to report. */
@@ -177,6 +179,7 @@ async function build(
     access,
     questions,
     approvals,
+    ...(options.sessions ? { sessions: options.sessions } : {}),
     ...(options.typing === false ? {} : { typing }),
     ...(options.workspace === false ? {} : { workspace }),
     ...(options.models === false ? {} : { models }),
@@ -384,6 +387,20 @@ describe('UpdateRouter — commands', () => {
     const { router, said } = await build()
     await router.handle(message('/whoami'))
     expect(said[0]).toContain(String(OWNER))
+  })
+
+  it('keeps receiving updates while /sessions waits for a button press', async () => {
+    const sessions = {
+      offer: vi.fn(() => new Promise<void>(() => undefined)),
+      handleCallback: vi.fn(() => false),
+    }
+    const { router } = await build({ sessions })
+    let handled = false
+
+    void router.handle(message('/sessions')).then(() => void (handled = true))
+
+    await vi.waitFor(() => expect(sessions.offer).toHaveBeenCalledWith({ chatId: '1' }))
+    await vi.waitFor(() => expect(handled).toBe(true))
   })
 
   it('ignores a command addressed to another bot in a group', async () => {

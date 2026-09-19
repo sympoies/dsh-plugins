@@ -9,7 +9,7 @@ const smoke = readFileSync(resolve(workspace, 'release/smoke.mjs'), 'utf8')
 
 describe('release compatibility', () => {
   it('targets the exact DSH 0.1.2 dependency line without resolver bypasses', () => {
-    expect(manifest.version).toBe('0.6.1')
+    expect(manifest.version).toBe('0.6.2')
     expect(manifest.dependencies).toMatchObject({
       '@deepseek-ai/cordis': '4.0.2',
       '@deepseek-ai/schemastery': '3.18.2',

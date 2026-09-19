@@ -563,7 +563,13 @@ export class UpdateRouter {
         if (!this.options.sessions) {
           return await this.say(target, 'This deployment does not keep a conversation list.')
         }
-        return await this.options.sessions.offer(target)
+        // The offer remains pending until a later callback update presses one
+        // of its buttons. Waiting here would block the sequential poller from
+        // receiving the callback that can settle it.
+        void this.options.sessions.offer(target).catch((error: unknown) => {
+          this.logger.error('[dsh-telegram] session picker failed', error)
+        })
+        return
 
       case 'stop': {
         const stopped = await this.options.runner.stop(target)

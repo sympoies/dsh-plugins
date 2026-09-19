@@ -116,10 +116,15 @@ describe('ChatHistory', () => {
 })
 
 /** A picker over a recording chat, with a spy on the session it adopts. */
-function build(past: { sessionId: string; label?: string }[], current?: string) {
+function build(
+  past: { sessionId: string; label?: string }[],
+  current?: string,
+  sendError?: Error,
+) {
   const sent: { html: string; keyboard?: InlineKeyboard }[] = []
   const surface: ChatSurface = {
     async send(_target, html, keyboard) {
+      if (sendError) throw sendError
       sent.push({ html, ...(keyboard ? { keyboard } : {}) })
       return sent.length
     },
@@ -132,9 +137,10 @@ function build(past: { sessionId: string; label?: string }[], current?: string) 
   }
 
   const adopted: string[] = []
+  const pending = new PendingRegistry<unknown>()
   const picker = new SessionPicker({
     surface,
-    pending: new PendingRegistry<unknown>(),
+    pending,
     history: {
       forChat: () => past.map((item) => entry(item.sessionId, item.label)),
     } as never,
@@ -142,7 +148,7 @@ function build(past: { sessionId: string; label?: string }[], current?: string) 
     adopt: async (_target, sessionId) => void adopted.push(sessionId),
   })
 
-  return { picker, sent, adopted }
+  return { picker, sent, adopted, pending }
 }
 
 /** Press the nth button of the newest message. */
@@ -183,6 +189,35 @@ describe('SessionPicker', () => {
     await vi.waitFor(() => expect(adopted).toEqual(['s1']))
     await vi.waitFor(() => expect(sent).toHaveLength(2))
     expect(sent[1]?.html).toContain('Back in')
+  })
+
+  it('replaces an earlier picker for the same chat', async () => {
+    const { picker, sent, adopted } = build([{ sessionId: 's1', label: 'old' }], 's2')
+    void picker.offer(CHAT)
+    await vi.waitFor(() => expect(sent).toHaveLength(1))
+    const stale = sent[0]?.keyboard?.flat()[0]?.callbackData
+
+    void picker.offer(CHAT)
+    await vi.waitFor(() => expect(sent).toHaveLength(2))
+
+    expect(picker.handleCallback(stale)).toBe(false)
+    press(sent, picker)
+    await vi.waitFor(() => expect(adopted).toEqual(['s1']))
+  })
+
+  it('cancels a picker whose keyboard could not be delivered', async () => {
+    const { picker, pending } = build(
+      [{ sessionId: 's1', label: 'old' }],
+      's2',
+      new Error('delivery failed'),
+    )
+    const cancel = vi.spyOn(pending, 'cancel')
+    let finished = false
+
+    void picker.offer(CHAT).then(() => void (finished = true))
+
+    await vi.waitFor(() => expect(cancel).toHaveBeenCalledOnce())
+    await vi.waitFor(() => expect(finished).toBe(true))
   })
 
   it('labels a conversation with no opening words by when it started', async () => {
