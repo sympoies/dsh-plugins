@@ -15,20 +15,27 @@ evidence. It does not own DSH runtime governance or production deployment.
   owns the coordinated public application and profile catalog.
 - This repository owns independently released DSH plugins.
 
+## Packages
+
+- [`@sympoies/dsh-telegram`](packages/dsh-telegram/README.md) provides a
+  two-way Telegram channel with rich messages, questions, and approvals.
+- [`@sympoies/dsh-llm-codex-subscription`](packages/llm-codex-subscription/README.md)
+  provides a portable Codex subscription compatible Responses provider.
+
 ## Layout
 
 Each plugin belongs in its own TypeScript workspace package:
 
 ```text
 packages/
-  <plugin-name>/
-    release/
-      manifest.json
-      smoke.mjs
-    src/
-    test/
-    package.json
-    tsconfig.json
+└── <plugin-name>/
+    ├── release/
+    │   ├── manifest.json
+    │   └── smoke.mjs
+    ├── src/
+    ├── test/
+    ├── package.json
+    └── tsconfig.json
 ```
 
 Every package should declare exact compatibility with the DSH prereleases it
@@ -50,11 +57,6 @@ npm install --global npm@11.6.2 --ignore-scripts
 npm ci --ignore-scripts
 npm run check
 ```
-
-The first package is
-[`@sympoies/dsh-llm-codex-subscription`](packages/llm-codex-subscription/README.md),
-a portable provider adapter for Codex subscription compatible Responses
-endpoints.
 
 ## License
 
