@@ -68,6 +68,11 @@ describe("release plan", () => {
     const root = fixture({ peerDependencies: { "@deepseek-ai/dsh": "^0.1.1-rc.2" } });
     expect(() => resolveReleasePlan(root, "dsh-example-v1.2.3")).toThrow("pin exact @deepseek-ai/dsh");
   });
+
+  it("rejects release metadata from the published package inventory", () => {
+    const root = fixture({ files: ["lib", "README.md", "LICENSE", "release/manifest.json"] });
+    expect(() => resolveReleasePlan(root, "dsh-example-v1.2.3")).toThrow("release files must be excluded");
+  });
 });
 
 describe("package inventory", () => {

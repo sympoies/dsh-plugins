@@ -75,6 +75,7 @@ function validatePackage(root: string, workspace: string, packageJson: JsonObjec
       fail(`${relativeWorkspace} files must contain safe literal paths`);
     }
   }
+  const declaredPackageFiles = packageFiles as string[];
   for (const file of ["README.md", "LICENSE"]) {
     if (!existsSync(join(workspace, file))) fail(`${relativeWorkspace}/${file} is missing`);
   }
@@ -97,8 +98,8 @@ function validatePackage(root: string, workspace: string, packageJson: JsonObjec
     fail(`${relativeWorkspace} release smokeModule is invalid`);
   }
   if (!existsSync(join(workspace, smokeModule))) fail(`${relativeWorkspace}/${smokeModule} is missing`);
-  if (packageFiles.some((entry) => entry === "release" || entry === smokeModule || smokeModule.startsWith(`${entry}/`))) {
-    fail(`${relativeWorkspace} release smokeModule must be excluded from package files`);
+  if (declaredPackageFiles.some((entry) => entry === "release" || entry.startsWith("release/"))) {
+    fail(`${relativeWorkspace} release files must be excluded from package files`);
   }
   const peers = packageJson.peerDependencies;
   if (peers === null || typeof peers !== "object" || Array.isArray(peers)) {
@@ -119,7 +120,7 @@ function validatePackage(root: string, workspace: string, packageJson: JsonObjec
     tag_prefix: release.tagPrefix,
     compatibility_peers: compatibilityPeers,
     smoke_module: smokeModule,
-    package_files: packageFiles as string[],
+    package_files: declaredPackageFiles,
     peer_dependencies: peers,
     main: packageJson.main,
     types: packageJson.types,
