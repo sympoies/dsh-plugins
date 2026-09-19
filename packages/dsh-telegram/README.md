@@ -17,11 +17,6 @@
 
 A Telegram front end for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).
 
-This package is independently maintained by Sympoies from Adam Suchiha
-Fizullah's MIT-licensed
-[`@ashafizullah/dsh-telegram`](https://github.com/ashafizullah/dsh-telegram).
-The exact imported source and downstream repair are recorded in [NOTICE](NOTICE).
-
 Talk to your agent from your phone — and actually *answer* it when it asks something.
 
 ## Why this exists
@@ -586,5 +581,9 @@ would break every hook the moment the page mounted.
 
 ## License
 
-MIT. The original copyright and license are retained in [LICENSE](LICENSE),
-and the imported source is documented in [NOTICE](NOTICE).
+MIT. The original copyright and license are retained in [LICENSE](LICENSE).
+
+This package is independently maintained by Sympoies from Adam Suchiha
+Fizullah's MIT-licensed
+[`@ashafizullah/dsh-telegram`](https://github.com/ashafizullah/dsh-telegram).
+The exact imported source and downstream repair are recorded in [NOTICE](NOTICE).
