@@ -158,6 +158,7 @@ function resolvedProfile(config: Config): ResolvedPiAiProviderProfile {
     requestImagePixelBudget: DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET,
     requestImageMaxBytes: DEFAULT_REQUEST_IMAGE_MAX_BYTES,
     retryPolicy: resolveRetryPolicy(config.retryPolicy, "llm-codex-subscription.retryPolicy"),
+    modelErrors: new Map(),
     configuredMaxTokens: new Map(),
     piProvider: createProvider({
       id: PROVIDER_ROUTE,
