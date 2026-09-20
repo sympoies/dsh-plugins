@@ -22,6 +22,13 @@
       "@deepseek-ai/dsh-launch-environment": "0.1.2-rc.1",
       "@deepseek-ai/dsh-llm": "0.1.2-rc.1",
       "@deepseek-ai/dsh-llm-pi-ai": "0.1.2-rc.1"
+    },
+    "dsh-0.1.6-alpha.2": {
+      "@deepseek-ai/cordis": "4.0.2",
+      "@deepseek-ai/dsh-attachment": "0.1.6-alpha.2",
+      "@deepseek-ai/dsh-launch-environment": "0.1.6-alpha.2",
+      "@deepseek-ai/dsh-llm": "0.1.6-alpha.2",
+      "@deepseek-ai/dsh-llm-pi-ai": "0.1.6-alpha.2"
     }
   },
   "smokeModule": "release/smoke.mjs"
