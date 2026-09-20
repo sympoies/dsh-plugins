@@ -42,7 +42,7 @@ buttons in the chat.
 
 ## Requirements
 
-- DeepSeek Harness `0.1.2-rc.1` with a profile you can add plugins to
+- DeepSeek Harness `0.1.6-alpha.2` with a profile you can add plugins to
 - **Bot API 10.1 or later**, for `sendRichMessage` and `sendRichMessageDraft`
 - Node 24 or later
 
