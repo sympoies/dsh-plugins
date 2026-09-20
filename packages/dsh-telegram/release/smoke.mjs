@@ -23,8 +23,8 @@ const cordisEntryPath = require.resolve('@deepseek-ai/cordis', {
   paths: [dirname(telegramManifestPath)],
 })
 
-if (dshManifest.version !== '0.1.2-rc.1') {
-  throw new Error(`expected @deepseek-ai/dsh@0.1.2-rc.1, received ${dshManifest.version}`)
+if (dshManifest.version !== '0.1.6-alpha.2') {
+  throw new Error(`expected @deepseek-ai/dsh@0.1.6-alpha.2, received ${dshManifest.version}`)
 }
 if (telegramManifest.name !== '@sympoies/dsh-telegram') {
   throw new Error(`unexpected Telegram package identity ${telegramManifest.name}`)

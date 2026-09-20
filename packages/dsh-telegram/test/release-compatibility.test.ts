@@ -8,19 +8,19 @@ const release = JSON.parse(readFileSync(resolve(workspace, 'release/manifest.jso
 const smoke = readFileSync(resolve(workspace, 'release/smoke.mjs'), 'utf8')
 
 describe('release compatibility', () => {
-  it('targets the exact DSH 0.1.2 dependency line without resolver bypasses', () => {
-    expect(manifest.version).toBe('0.6.2')
+  it('targets the exact DSH 0.1.6-alpha.2 dependency line without resolver bypasses', () => {
+    expect(manifest.version).toBe('0.6.3')
     expect(manifest.dependencies).toMatchObject({
       '@deepseek-ai/cordis': '4.0.2',
       '@deepseek-ai/schemastery': '3.18.2',
     })
-    expect(manifest.peerDependencies).toEqual({ '@deepseek-ai/dsh': '0.1.2-rc.1' })
+    expect(manifest.peerDependencies).toEqual({ '@deepseek-ai/dsh': '0.1.6-alpha.2' })
     expect(release.legacyPeerDeps).toBe(false)
-    expect(release.smokeDependencies['@deepseek-ai/dsh-invariants']).toBe('0.1.2-rc.1')
+    expect(release.smokeDependencies['@deepseek-ai/dsh-invariants']).toBe('0.1.6-alpha.2')
   })
 
   it('boots the enabled plugin through the exact packaged DSH profile', () => {
-    expect(smoke).toContain("dshManifest.version !== '0.1.2-rc.1'")
+    expect(smoke).toContain("dshManifest.version !== '0.1.6-alpha.2'")
     expect(smoke).toContain("await ctx.plugin(Telegram, { enabled: true, tokenRef: 'release-token' })")
     expect(smoke).toContain("status?.state !== 'idle'")
   })
