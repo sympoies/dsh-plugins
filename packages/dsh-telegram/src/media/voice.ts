@@ -80,6 +80,7 @@ export class TelegramVoiceTranscriber implements VoiceTranscriber {
         },
         body: Buffer.from(bytes),
         signal,
+        redirect: 'error',
       })
       if (response.status === 429) {
         return { kind: 'failure', notice: 'Speech recognition is busy. Please try again.' }

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { createServer } from 'node:http'
 
 import { isSafeSpeechEndpoint, TelegramVoiceTranscriber } from '../src/media/voice.js'
 
@@ -84,5 +85,42 @@ describe('TelegramVoiceTranscriber', () => {
       new Response(JSON.stringify({ text: 'x'.repeat(3501) })),
     )
     expect((await tooLong.reader.transcribe(voice)).kind).toBe('failure')
+  })
+
+  it('never follows a speech redirect with the recording', async () => {
+    let forwarded = false
+    const target = createServer((_request, response) => {
+      forwarded = true
+      response.end('{}')
+    })
+    const targetPort = await new Promise<number>((resolve) => target.listen(0, '127.0.0.1', () => {
+      const address = target.address()
+      resolve(typeof address === 'object' && address ? address.port : 0)
+    }))
+    const origin = createServer((_request, response) => {
+      response.writeHead(307, { location: `http://127.0.0.1:${targetPort}/redirected` })
+      response.end()
+    })
+    const originPort = await new Promise<number>((resolve) => origin.listen(0, '127.0.0.1', () => {
+      const address = origin.address()
+      resolve(typeof address === 'object' && address ? address.port : 0)
+    }))
+    try {
+      const source = {
+        getFile: async () => ({ file_path: 'voice/file.oga', file_size: 3 }),
+        downloadFile: async () => new Uint8Array([1, 2, 3]),
+      }
+      const reader = new TelegramVoiceTranscriber({
+        source, endpoint: `http://127.0.0.1:${originPort}/v1/transcriptions`, token: 'secret-token',
+        maxBytes: 8 * 1024 * 1024, maxSeconds: 45, timeoutMs: 1000,
+      })
+      expect((await reader.transcribe(voice)).kind).toBe('failure')
+      expect(forwarded).toBe(false)
+    } finally {
+      await Promise.all([origin, target].map((server) => new Promise<void>((resolve) => {
+        server.closeAllConnections()
+        server.close(() => resolve())
+      })))
+    }
   })
 })
