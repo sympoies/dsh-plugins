@@ -98,5 +98,7 @@ describe('Config', () => {
 
   it('has no place to put a token, only a reference to one', () => {
     expect(Object.keys(Config({}))).not.toContain('token')
+    expect(Config({}).media.speech.enabled).toBe(false)
+    expect(Object.keys(Config({}).media.speech)).not.toContain('token')
   })
 })

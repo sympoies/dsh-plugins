@@ -19,6 +19,11 @@ function botApiServer() {
   const getMeFailures: { status: number; description: string }[] = []
 
   const server: Server = createServer((request, response) => {
+    if (request.url?.includes('/file/bot')) {
+      response.writeHead(200, { 'content-type': 'audio/ogg' })
+      response.end(Buffer.from([1, 2, 3]))
+      return
+    }
     let raw = ''
     request.on('data', (chunk) => (raw += chunk))
     request.on('end', () => {
@@ -38,6 +43,8 @@ function botApiServer() {
       const result =
         method === 'getMe'
           ? { id: 1, is_bot: true, username: 'test_bot' }
+          : method === 'getFile'
+            ? { file_path: 'voice/file.oga', file_size: 3 }
           : method === 'getUpdates'
             ? (updates.shift() ?? [])
             : method === 'sendMessage'
@@ -250,6 +257,49 @@ describe('apply — connecting', () => {
 })
 
 describe('apply — end to end', () => {
+  it('resolves the speech credential and submits a voice transcript to DSH', async () => {
+    const received: { authorization?: string; bytes?: Buffer } = {}
+    const asr = createServer((request, response) => {
+      received.authorization = request.headers.authorization
+      const chunks: Buffer[] = []
+      request.on('data', (chunk: Buffer) => chunks.push(chunk))
+      request.on('end', () => {
+        received.bytes = Buffer.concat(chunks)
+        response.writeHead(200, { 'content-type': 'application/json' })
+        response.end(JSON.stringify({ text: 'Please run the tests' }))
+      })
+    })
+    const asrPort = await new Promise<number>((resolve) => {
+      asr.listen(0, '127.0.0.1', () => {
+        const address = asr.address()
+        resolve(typeof address === 'object' && address ? address.port : 0)
+      })
+    })
+    try {
+      const harness = fakeContext()
+      const refs: string[] = []
+      harness.ctx.credentials = { resolve: async (ref: string) => {
+        refs.push(ref)
+        return { value: ref === 'SPEECH_TEST' ? 'speech-secret' : '123456:TEST-TOKEN' }
+      } }
+      bot.queueUpdates([{ update_id: 1, message: {
+        message_id: 1, chat: { id: 500, type: 'private' }, from: { id: 7 },
+        voice: { file_id: 'voice-1', file_size: 3, duration: 2 },
+      } }])
+      apply(harness.ctx as never, config({ media: {
+        speech: { enabled: true, endpoint: `http://127.0.0.1:${asrPort}/v1/transcriptions`, tokenRef: 'SPEECH_TEST' },
+      } }))
+      await vi.waitFor(() => expect(harness.prompts).toEqual(['Please run the tests']))
+      harness.stop()
+      expect(refs).toContain('SPEECH_TEST')
+      expect(received.authorization).toBe('Bearer speech-secret')
+      expect(received.bytes).toEqual(Buffer.from([1, 2, 3]))
+      expect(bot.of('sendMessage').some((call) => String(call.body.text).includes('Please run the tests'))).toBe(true)
+    } finally {
+      await new Promise<void>((resolve) => asr.close(() => resolve()))
+    }
+  })
+
   it('turns an incoming message into a prompt for a new session', async () => {
     const harness = fakeContext()
     bot.queueUpdates([textUpdate(1, 'run the tests')])

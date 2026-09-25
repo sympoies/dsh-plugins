@@ -60,6 +60,7 @@ import { TypingIndicator } from './telegram/typing.js'
 import { VisionExtractor } from './media/extractor.js'
 import { OcrReader } from './media/ocr.js'
 import { MediaCollector } from './media/collect.js'
+import { isSafeSpeechEndpoint, TelegramVoiceTranscriber } from './media/voice.js'
 import { VisionCheck, acceptsImages } from './media/vision.js'
 import type { ModelCatalog } from './media/vision.js'
 import { buildUserMessage } from './harness/message.js'
@@ -477,6 +478,26 @@ async function start(
       })
     : undefined
 
+  const speech = config.media.speech
+  const safeSpeechEndpoint = speech.enabled && isSafeSpeechEndpoint(speech.endpoint)
+  const speechToken = safeSpeechEndpoint && speech.tokenRef
+    ? await resolveToken(ctx, speech.tokenRef)
+    : undefined
+  secrets.protect(speechToken)
+  const voice = speech.enabled
+    ? speechToken && speech.endpoint
+      ? new TelegramVoiceTranscriber({
+          source: api,
+          endpoint: speech.endpoint,
+          token: speechToken,
+          maxBytes: speech.maxBytes,
+          maxSeconds: speech.maxSeconds,
+          timeoutMs: speech.timeoutMs,
+          signal,
+        })
+      : { transcribe: async () => ({ kind: 'failure' as const, notice: 'Speech recognition is not configured.' }) }
+    : undefined
+
   const sessionPicker = new SessionPicker({
     surface,
     pending,
@@ -513,6 +534,7 @@ async function start(
 
   const router = new UpdateRouter({
     chat: api,
+    ...(voice ? { voice } : {}),
     access,
     questions,
     approvals,

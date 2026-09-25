@@ -96,7 +96,7 @@ export interface TelegramMessage {
     readonly file_name?: string
     readonly mime_type?: string
   }
-  readonly voice?: { readonly file_id: string; readonly duration?: number }
+  readonly voice?: { readonly file_id: string; readonly duration?: number; readonly file_size?: number }
   readonly audio?: { readonly file_id: string; readonly mime_type?: string }
   readonly video?: { readonly file_id: string; readonly mime_type?: string }
 }

@@ -19,6 +19,7 @@ async function build(
   options: {
     allowFrom?: number[]
     media?: unknown
+    voice?: unknown
     /** Omit to run without an indicator at all, as a bare deployment does. */
     typing?: boolean
     /** What `inspect` reports for whatever path /cd resolves to. */
@@ -206,6 +207,7 @@ async function build(
     botId: 4242,
     requireAddressing: options.requireAddressing !== false,
     ...(options.media ? { media: options.media as never } : {}),
+    ...(options.voice ? { voice: options.voice as never } : {}),
     albumWindowMs: 20,
     redact: (text) => text.split('SECRET-TOKEN').join('<redacted>'),
   })
@@ -250,6 +252,54 @@ function message(text: string, from = OWNER, chatId = 1): TelegramUpdate {
 }
 
 describe('UpdateRouter — access', () => {
+  it('transcribes an allowed voice note into the current DSH conversation', async () => {
+    const transcribe = vi.fn(async () => ({ kind: 'success', text: 'check the build' }))
+    const { router, runner, said } = await build({ voice: { transcribe } })
+    await router.handle({
+      update_id: 3,
+      message: { message_id: 3, chat: { id: 1, type: 'private' }, from: { id: OWNER }, voice: { file_id: 'v' } },
+    })
+    expect(transcribe).toHaveBeenCalledWith({ file_id: 'v' })
+    expect(said.join(' ')).toContain('check the build')
+    expect(runner.prompt).toHaveBeenCalledWith({ chatId: '1' }, [{ type: 'text', text: 'check the build' }])
+  })
+
+  it('never downloads or transcribes a stranger\'s voice note', async () => {
+    const transcribe = vi.fn()
+    const { router, runner } = await build({ voice: { transcribe } })
+    await router.handle({
+      update_id: 4,
+      message: { message_id: 4, chat: { id: 1, type: 'private' }, from: { id: STRANGER }, voice: { file_id: 'v' } },
+    })
+    expect(transcribe).not.toHaveBeenCalled()
+    expect(runner.prompt).not.toHaveBeenCalled()
+  })
+
+  it('does not prompt DSH after a transcription failure', async () => {
+    const { router, runner, said } = await build({
+      voice: { transcribe: async () => ({ kind: 'failure', notice: 'Speech recognition is busy.' }) },
+    })
+    await router.handle({
+      update_id: 5,
+      message: { message_id: 5, chat: { id: 1, type: 'private' }, from: { id: OWNER }, voice: { file_id: 'v' } },
+    })
+    expect(said.join(' ')).toContain('busy')
+    expect(runner.prompt).not.toHaveBeenCalled()
+  })
+
+  it('can answer a pending text question by voice', async () => {
+    const { router, runner, textCapture } = await build({
+      voice: { transcribe: async () => ({ kind: 'success', text: 'yes' }) },
+    })
+    const answer = textCapture.next({ chatId: '1' })
+    await router.handle({
+      update_id: 6,
+      message: { message_id: 6, chat: { id: 1, type: 'private' }, from: { id: OWNER }, voice: { file_id: 'v' } },
+    })
+    await expect(answer).resolves.toBe('yes')
+    expect(runner.prompt).not.toHaveBeenCalled()
+  })
+
   it('sends an allowed user\'s message to the agent', async () => {
     const { router, runner } = await build()
     await router.handle(message('build the thing'))
