@@ -1,6 +1,6 @@
 {
   "name": "@sympoies/dsh-telegram",
-  "version": "0.6.3",
+  "version": "0.7.0",
   "description": "Telegram channel for DeepSeek Harness — real Telegram markdown, and answer the agent's questions and approvals straight from chat",
   "type": "module",
   "license": "MIT",

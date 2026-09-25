@@ -252,10 +252,14 @@ Anything else you type is a prompt for the agent.
 | A photo, or an image sent as a file | What the vision model reads in it, and your caption |
 | Several photos at once | All of them in one message, under your caption |
 | A text file — a log, a stack trace, source | Its contents in the prompt, truncated if very long |
-| A voice note, audio, or video | A note saying it could not be read |
+| A voice note | Its transcription as a text prompt, when speech recognition is configured |
+| An audio file or video | A note saying it could not be read |
 
 Images go through the harness attachment seam, which accepts PNG, JPEG, WebP
-and GIF. Everything else it explicitly defers, so this plugin says so rather
+and GIF. Voice notes go through an optional speech-to-text service; the bot
+shows the transcription and immediately sends it into the current conversation.
+No edit or confirmation step precedes the agent turn. Everything else is
+explicitly deferred, so this plugin says so rather
 than accepting the message and quietly dropping what it carried.
 
 The seam also refuses an image whose longest side is over `maxImageDimension`,
@@ -417,6 +421,14 @@ Every field has a working default; an empty config runs.
 | `media.enabled` | `true` | Read images and text files the user sends |
 | `media.maxBytes` | `20 MB` | Refuse anything larger; Telegram caps bot downloads there |
 | `media.maxTextChars` | `60000` | Truncate an inlined text file to this many characters |
+| `media.speech.enabled` | `false` | Transcribe Telegram voice notes |
+| `media.speech.endpoint` | `""` | Speech-to-text `POST` endpoint accepting raw OGG and returning JSON `{ "text": "..." }`; HTTPS required except for loopback HTTP |
+| `media.speech.tokenRef` | `""` | Credential reference for the speech-to-text bearer token |
+| `media.speech.timeoutMs` | `120000` | Maximum transcription wait in milliseconds |
+| `media.speech.maxBytes` | `8 MiB` | Voice-note limit before download; the service also enforces its own limit |
+| `media.speech.maxSeconds` | `45` | Duration limit before download; the service also enforces its own limit |
+
+The bot rejects speech responses over 64 KiB and transcripts over 3,500 characters before sending them to Telegram or DSH.
 | `media.ocr.enabled` | `true` | Read an image's text with tesseract when no vision model can. Does nothing unless tesseract is installed |
 | `media.ocr.languages` | `eng` | Languages tesseract reads; join several with `+`. Only installed ones work |
 | `media.visionModel` | `""` | `provider/model` that reads images in a session of its own; empty sends the image to the conversation itself. Picked from a dropdown on the settings page |
@@ -577,7 +589,7 @@ would break every hook the moment the page mounted.
 
 - **One directory per conversation.** `/cd` moves a conversation, but a
   session cannot be moved: the change starts a fresh one.
-- **No voice, audio or video.** The harness attachment seam takes images only.
+- **No uploaded audio files or video.** Voice notes require a configured speech-to-text service; the harness attachment seam still takes images only.
 
 ## License
 

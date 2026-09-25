@@ -60,6 +60,14 @@ export const Config = Schema.object({
     maxTextChars: Schema.natural()
       .default(60_000)
       .description('Truncate an inlined text file to this many characters.'),
+    speech: Schema.object({
+      enabled: Schema.boolean().default(false).description('Transcribe Telegram voice notes before sending them to the agent.'),
+      endpoint: Schema.string().default('').description('Speech-to-text HTTP transcription endpoint.'),
+      tokenRef: Schema.string().default('').description('Credential reference for the speech-to-text bearer token.'),
+      timeoutMs: Schema.natural().default(120_000).description('Maximum time to wait for one transcription.'),
+      maxBytes: Schema.natural().default(8 * 1024 * 1024).description('Largest voice note sent to speech-to-text.'),
+      maxSeconds: Schema.natural().default(45).description('Longest voice note sent to speech-to-text.'),
+    }),
     ocr: Schema.object({
       enabled: Schema.boolean()
         .default(true)

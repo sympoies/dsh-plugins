@@ -27,6 +27,7 @@ import type { TextCapture } from './interact/text-capture.js'
 import type { Logger } from './harness/types.js'
 import { SILENT_LOGGER } from './harness/types.js'
 import type { MediaCollector, PromptPart } from './media/collect.js'
+import type { VoiceTranscriber } from './media/voice.js'
 import type { TelegramMessage, TelegramUpdate } from './telegram/types.js'
 import type { StatusRow } from './session/runner.js'
 
@@ -292,6 +293,8 @@ export interface UpdateRouterOptions {
    * text-only, which is what it was before media was wired up.
    */
   readonly media?: MediaCollector
+  /** Optional voice-note reader; absence retains the existing refusal. */
+  readonly voice?: VoiceTranscriber
   /**
    * This bot's own user id, so a reply to something it said is recognised as
    * addressing it. A group conversation continues that way rather than by
@@ -411,6 +414,24 @@ export class UpdateRouter {
 
       const command = parseCommand(text, this.options.botUsername)
       if (command) return await this.onCommand(target, userId, command.name, command.args)
+    }
+
+    if (message.voice && this.options.voice) {
+      const release = this.options.typing?.hold(target)
+      try {
+        const result = await this.options.voice.transcribe(message.voice)
+        if (result.kind === 'failure') {
+          await this.say(target, escapeHtml(result.notice))
+          return
+        }
+        await this.say(target, `📝 ${escapeHtml(result.text)}`)
+        const spoken = text ? `${text}\n\n${result.text}` : result.text
+        if (this.options.textCapture.deliver(target, spoken)) return
+        await this.runPrompt(target, [{ type: 'text', text: spoken }])
+      } finally {
+        release?.()
+      }
+      return
     }
 
     if (!carriesMedia) {
