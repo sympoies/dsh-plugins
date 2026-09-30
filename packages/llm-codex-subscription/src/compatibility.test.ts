@@ -6,35 +6,37 @@ const packageRoot = resolve(import.meta.dirname, "..");
 const packageJson = JSON.parse(readFileSync(resolve(packageRoot, "package.json"), "utf8"));
 const manifest = JSON.parse(readFileSync(resolve(packageRoot, "release/manifest.json"), "utf8"));
 
-describe("DSH 0.1.6-alpha.2 compatibility", () => {
-  it("declares and independently boots the complete exact alpha.2 peer graph", () => {
-    expect(packageJson.peerDependencies["@deepseek-ai/cordis"].split(" || ")).toContain("4.0.4");
-    expect(manifest.compatibilityProfiles["dsh-0.1.6-alpha.2-cordis-4.0.4"]).toEqual({
+const DSH_PEERS = [
+  "@deepseek-ai/dsh-attachment",
+  "@deepseek-ai/dsh-launch-environment",
+  "@deepseek-ai/dsh-llm",
+  "@deepseek-ai/dsh-llm-pi-ai",
+];
+
+describe("DSH 0.2.0-rc.2 compatibility", () => {
+  it("declares and independently boots exactly the 0.2.0-rc.2 peer graph", () => {
+    expect(packageJson.version).toBe("0.2.0");
+    expect(packageJson.peerDependencies).toEqual({
       "@deepseek-ai/cordis": "4.0.4",
-      "@deepseek-ai/dsh-attachment": "0.1.6-alpha.2",
-      "@deepseek-ai/dsh-launch-environment": "0.1.6-alpha.2",
-      "@deepseek-ai/dsh-llm": "0.1.6-alpha.2",
-      "@deepseek-ai/dsh-llm-pi-ai": "0.1.6-alpha.2",
+      ...Object.fromEntries(DSH_PEERS.map((peer) => [peer, "0.2.0-rc.2"])),
     });
-    expect(packageJson.version).toBe("0.1.5");
-    expect(packageJson.dependencies["@earendil-works/pi-ai"]).toBe("0.85.1");
-    expect(packageJson.devDependencies).toMatchObject({
-      "@deepseek-ai/dsh-attachment": "0.1.6-alpha.2",
-      "@deepseek-ai/dsh-launch-environment": "0.1.6-alpha.2",
-      "@deepseek-ai/dsh-llm": "0.1.6-alpha.2",
-      "@deepseek-ai/dsh-llm-pi-ai": "0.1.6-alpha.2",
+    expect(manifest.compatibilityProfiles).toEqual({
+      "dsh-0.2.0-rc.2": packageJson.peerDependencies,
     });
-    expect(manifest.compatibilityProfiles["dsh-0.1.6-alpha.2"]).toEqual({
-      "@deepseek-ai/cordis": "4.0.2",
-      "@deepseek-ai/dsh-attachment": "0.1.6-alpha.2",
-      "@deepseek-ai/dsh-launch-environment": "0.1.6-alpha.2",
-      "@deepseek-ai/dsh-llm": "0.1.6-alpha.2",
-      "@deepseek-ai/dsh-llm-pi-ai": "0.1.6-alpha.2",
+    expect([...manifest.compatibilityPeers].sort()).toEqual(
+      Object.keys(packageJson.peerDependencies).sort(),
+    );
+  });
+
+  it("builds on the pi-ai and schemastery versions that DSH 0.2.0-rc.2 resolves", () => {
+    // The adapter hands a pi-ai provider to DSH's PiAiAdapter, so both must load one pi-ai.
+    expect(packageJson.dependencies).toEqual({
+      "@deepseek-ai/schemastery": "3.18.4",
+      "@earendil-works/pi-ai": "0.87.1",
     });
-    for (const peer of manifest.compatibilityPeers) {
-      expect(packageJson.peerDependencies[peer].split(" || ")).toContain(
-        manifest.compatibilityProfiles["dsh-0.1.6-alpha.2"][peer],
-      );
-    }
+    expect(packageJson.devDependencies).toEqual({
+      "@deepseek-ai/cordis": "4.0.4",
+      ...Object.fromEntries(DSH_PEERS.map((peer) => [peer, "0.2.0-rc.2"])),
+    });
   });
 });
