@@ -39,5 +39,5 @@ description = "Run the complete routine repository gate once for the stable cand
 [path_classes]
 production = [".gitignore", ".node-version", "AGENT_DOCS.toml", "package.json", "package-lock.json", "tsconfig.json", ".agents/**", ".github/workflows/**", "scripts/check-reviewed-release-source.ts", "scripts/release-package.ts", "packages/*/package.json", "packages/*/release/**", "packages/*/build.client.mjs", "packages/*/cordis.patch.yml", "packages/*/tsconfig*.json", "packages/dsh-telegram/src/**", "packages/llm-codex-subscription/src/index.ts", "packages/llm-codex-subscription/src/payload.ts"]
 test = ["vitest.config.ts", "scripts/*.test.ts", "packages/*/vitest.config.ts", "packages/*/test/**", "packages/llm-codex-subscription/src/*.test.ts"]
-docs = ["AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md", "README.md", "LICENSE", "SECURITY.md", "docs/**", "packages/README.md", "packages/*/README.md", "packages/*/LICENSE", "packages/*/NOTICE"]
+docs = ["AGENTS.md", "CONTRIBUTING.md", "README.md", "LICENSE", "SECURITY.md", "docs/**", "packages/README.md", "packages/*/README.md", "packages/*/LICENSE", "packages/*/NOTICE"]
 unmatched = "unknown"
