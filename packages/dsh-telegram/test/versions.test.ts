@@ -94,6 +94,13 @@ describe('VersionCheck', () => {
     expect(fake.asked[0]).toBe('https://registry.npmjs.org/@scope%2Fname/latest')
   })
 
+  it('escapes every path separator in the package name', async () => {
+    const fake = registry()
+    await new VersionCheck({ fetchImpl: fake.fetchImpl }).check('@scope/name/extra', '1.0.0')
+
+    expect(fake.asked[0]).toBe('https://registry.npmjs.org/@scope%2Fname%2Fextra/latest')
+  })
+
   it('asks for the one dist-tag, not the whole document', async () => {
     // A package's full metadata can be megabytes; one field is wanted.
     const fake = registry()
