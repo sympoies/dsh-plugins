@@ -86,7 +86,7 @@ export class VersionCheck {
       // The `latest` dist-tag endpoint rather than the full document: a
       // package's full metadata can be megabytes, and only one field is wanted.
       const response = await fetchImpl(
-        `https://registry.npmjs.org/${name.replace('/', '%2F')}/latest`,
+        `https://registry.npmjs.org/${name.replaceAll('/', '%2F')}/latest`,
         { signal: controller.signal },
       )
       if (!response.ok) return undefined
