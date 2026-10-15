@@ -32,6 +32,9 @@ This repository contains MIT-licensed public plugins for DeepSeek Harness
   deployment-specific bindings.
 - Run `npm run check` once on the stable candidate. Release, consumer repin,
   hosted acceptance, and deployment remain separate authority boundaries.
+- Finish-line validation and path classes are declared in `VALIDATION.toml`.
+- Contributor setup: `CONTRIBUTING.md`; release contract for authorized
+  publication work: `docs/releases.md`.
 
 ## Project skills
 
