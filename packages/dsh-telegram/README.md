@@ -19,6 +19,17 @@ A Telegram front end for [DeepSeek Harness](https://github.com/deepseek-ai/deeps
 
 Talk to your agent from your phone — and actually *answer* it when it asks something.
 
+**Contents**
+
+| If you want to… | Read |
+| --- | --- |
+| Install it and claim the bot | [Requirements](#requirements), [Install](#install), [Access](#access) |
+| Know what each command does | [Commands](#commands) |
+| Send photos, files or voice notes | [What you can send](#what-you-can-send) |
+| Change settings | [Configuring it](#configuring-it), [Configuration](#configuration) |
+| Find out why something did not work | [Diagnostics](#diagnostics), [Known limitations](#known-limitations) |
+| Understand how it is built | [How it fits together](#how-it-fits-together), [Development](#development) |
+
 ## Why this exists
 
 Running an agent from a chat app breaks down at two specific points, and this
@@ -101,6 +112,9 @@ it can run shell commands on your machine. So the default is closed.
 
 The claim code changes on every restart and is never sent over Telegram.
 
+Access is checked before anything else, so no unauthorised text reaches the
+agent — not even a command.
+
 ## Commands
 
 | Command | What it does |
@@ -117,9 +131,16 @@ The claim code changes on every restart and is never sent over Telegram.
 | `/diag` | What the plugin can see about itself, and recent failures |
 | `/screenshot` | Send a picture of the harness machine's screen |
 | `/sessions` | Pick up an earlier conversation from this chat |
-| `/status` | Session id, working directory, and whether it is loaded |
+| `/status` | Session id, working directory, whether it is loaded, and the model, effort, image reader and permission in effect |
 | `/stop` | Cancel whatever the agent is doing right now |
 | `/whoami` | Your Telegram user id |
+
+The commands are published to Telegram on every connection, so typing `/` in
+the chat offers the list with descriptions. `/claim` drops off it once the bot
+has an owner — it is the one command that stops working the moment it
+succeeds.
+
+Anything else you type is a prompt for the agent.
 
 ### In a group
 
@@ -237,12 +258,6 @@ that `/new` discards.
 A directory that does not exist, one that turns out to be a file, and one that
 cannot be read are three different mistakes and get three different sentences.
 Each leaves the conversation exactly where it was.
-
-They are published to Telegram on every connection, so typing `/` in the chat
-offers the list with descriptions. `/claim` drops off it once the bot has an
-owner — it is the one command that stops working the moment it succeeds.
-
-Anything else you type is a prompt for the agent.
 
 ## What you can send
 
@@ -397,7 +412,7 @@ environment already supplies (a write there would look like it worked while
 resolution kept returning the shadowing value).
 
 Everything on the page is equally settable in a profile patch, for a deployment
-that configures by file:
+that configures by file, using the keys in [Configuration](#configuration).
 
 ## Configuration
 
@@ -427,13 +442,14 @@ Every field has a working default; an empty config runs.
 | `media.speech.timeoutMs` | `120000` | Maximum transcription wait in milliseconds |
 | `media.speech.maxBytes` | `8 MiB` | Voice-note limit before download; the service also enforces its own limit |
 | `media.speech.maxSeconds` | `45` | Duration limit before download; the service also enforces its own limit |
-
-The bot rejects speech responses over 64 KiB and transcripts over 3,500 characters before sending them to Telegram or DSH.
 | `media.ocr.enabled` | `true` | Read an image's text with tesseract when no vision model can. Does nothing unless tesseract is installed |
 | `media.ocr.languages` | `eng` | Languages tesseract reads; join several with `+`. Only installed ones work |
 | `media.visionModel` | `""` | `provider/model` that reads images in a session of its own; empty sends the image to the conversation itself. Picked from a dropdown on the settings page |
 | `reconnect.baseDelayMs` | `1000` | Delay before the first reconnect attempt |
 | `reconnect.maxDelayMs` | `30000` | Longest delay between reconnect attempts |
+
+The bot rejects speech responses over 64 KiB and transcripts over 3,500
+characters before sending them to Telegram or DSH.
 
 ## Diagnostics
 
@@ -547,9 +563,6 @@ lifetime exactly — it disappears when the turn is persisted, so the finished
 reply carries the answer rather than the scaffolding that produced it. It is a
 single clipped line: a tool call's arguments can be an entire file, and the
 point is knowing the agent is alive, not reading a transcript.
-
-Access is checked before anything else, so no unauthorised text reaches the
-agent — not even a command.
 
 ## Development
 
