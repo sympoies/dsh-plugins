@@ -131,7 +131,7 @@ agent — not even a command.
 | `/diag` | What the plugin can see about itself, and recent failures |
 | `/screenshot` | Send a picture of the harness machine's screen |
 | `/sessions` | Pick up an earlier conversation from this chat |
-| `/status` | Session id, working directory, whether it is loaded, and the model, effort, image reader and permission in effect |
+| `/status` | Session id, working directory, whether it is loaded, plus available model, effort, image-reader and permission settings |
 | `/stop` | Cancel whatever the agent is doing right now |
 | `/whoami` | Your Telegram user id |
 
