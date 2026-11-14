@@ -35,7 +35,3 @@ This repository contains MIT-licensed public plugins for DeepSeek Harness
 - Finish-line validation and path classes are declared in `VALIDATION.toml`.
 - Contributor setup: `CONTRIBUTING.md`; release contract for authorized
   publication work: `docs/releases.md`.
-
-## Project skills
-
-- Project-local skills live under `.agents/skills/<name>/`.
