@@ -21,8 +21,8 @@ This repository contains MIT-licensed public plugins for DeepSeek Harness
 
 - Keep repository content in English.
 - Use strict TypeScript and test-first evidence for behavior changes.
-- Use the project-local `project-plugin-development` skill and read
-  `docs/development-testing.md` for material plugin, compatibility, packaging,
+- Read the canonical
+  [development and testing policy](docs/development-testing.md) for material plugin, compatibility, packaging,
   release-contract, or development-policy work. Start at the earliest layer
   that can prove the observable delta.
 - Give each plugin an independent package under `packages/<name>`.
@@ -35,7 +35,3 @@ This repository contains MIT-licensed public plugins for DeepSeek Harness
 - Finish-line validation and path classes are declared in `VALIDATION.toml`.
 - Contributor setup: `CONTRIBUTING.md`; release contract for authorized
   publication work: `docs/releases.md`.
-
-## Project skills
-
-- Project-local skills live under `.agents/skills/<name>/`.

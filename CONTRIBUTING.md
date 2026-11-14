@@ -18,6 +18,5 @@ Every behavior change should include focused test-first evidence. Each plugin
 must declare its exact DSH compatibility and keep deployment-specific values
 out of source control.
 
-For material plugin, compatibility, packaging, or release-contract work, use
-the repository-local `project-plugin-development` skill and follow the
+For material plugin, compatibility, packaging, or release-contract work, follow the
 [layered development and testing policy](docs/development-testing.md).

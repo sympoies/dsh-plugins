@@ -1,8 +1,7 @@
 # Layered plugin development and testing
 
 This is the mandatory validation policy for material changes to
-`dsh-plugins`. Use the repository-local `project-plugin-development` skill to
-apply it.
+`dsh-plugins`. Apply this policy directly.
 
 Each layer proves a different boundary. Unit tests do not prove compiled
 output, a successful build does not prove the npm inventory, and a packed
@@ -182,7 +181,7 @@ When work exposes repeatable friction:
 4. Repair that owner within the active authority; otherwise prepare the
    smallest handoff and stop at the boundary.
 5. Resume from the first invalidated required layer.
-6. Update this policy or the project skill only when the lesson generalizes to
+6. Update this policy only when the lesson generalizes to
    future plugin work.
 
 The loop improves tests and diagnostics. It never grants issue, release,
